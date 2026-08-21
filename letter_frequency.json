@@ -1,0 +1,110 @@
+{
+  "source_file": "Collins Scrabble Words (2019).txt",
+  "total_letters": 2544795,
+  "letters": {
+    "a": {
+      "count": 196746,
+      "percentage": 7.7313
+    },
+    "b": {
+      "count": 47312,
+      "percentage": 1.8592
+    },
+    "c": {
+      "count": 102010,
+      "percentage": 4.0086
+    },
+    "d": {
+      "count": 85379,
+      "percentage": 3.355
+    },
+    "e": {
+      "count": 287059,
+      "percentage": 11.2802
+    },
+    "f": {
+      "count": 30331,
+      "percentage": 1.1919
+    },
+    "g": {
+      "count": 71315,
+      "percentage": 2.8024
+    },
+    "h": {
+      "count": 63613,
+      "percentage": 2.4997
+    },
+    "i": {
+      "count": 229896,
+      "percentage": 9.034
+    },
+    "j": {
+      "count": 4240,
+      "percentage": 0.1666
+    },
+    "k": {
+      "count": 23873,
+      "percentage": 0.9381
+    },
+    "l": {
+      "count": 133089,
+      "percentage": 5.2299
+    },
+    "m": {
+      "count": 73708,
+      "percentage": 2.8964
+    },
+    "n": {
+      "count": 170302,
+      "percentage": 6.6922
+    },
+    "o": {
+      "count": 168716,
+      "percentage": 6.6298
+    },
+    "p": {
+      "count": 76371,
+      "percentage": 3.0011
+    },
+    "q": {
+      "count": 4301,
+      "percentage": 0.169
+    },
+    "r": {
+      "count": 177705,
+      "percentage": 6.9831
+    },
+    "s": {
+      "count": 245020,
+      "percentage": 9.6283
+    },
+    "t": {
+      "count": 165990,
+      "percentage": 6.5227
+    },
+    "u": {
+      "count": 84212,
+      "percentage": 3.3092
+    },
+    "v": {
+      "count": 23418,
+      "percentage": 0.9202
+    },
+    "w": {
+      "count": 19570,
+      "percentage": 0.769
+    },
+    "x": {
+      "count": 7216,
+      "percentage": 0.2836
+    },
+    "y": {
+      "count": 41124,
+      "percentage": 1.616
+    },
+    "z": {
+      "count": 12279,
+      "percentage": 0.4825
+    }
+  }
+}

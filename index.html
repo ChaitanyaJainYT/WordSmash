@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WordSmash</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://pyscript.net/releases/2024.6.1/core.css">
+  <script type="module" src="https://pyscript.net/releases/2024.6.1/core.js"></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <p class="eyebrow">A board word game</p>
+        <h1>Word<br>Smash</h1>
+      </div>
+      <p class="tagline">Build the word. Score it. Hammer out two letters.</p>
+    </header>
+
+    <div class="layout">
+      <section class="panel play-panel" aria-labelledby="play-heading">
+        <div class="panel-label">
+          <span id="play-heading">Board <span id="board-size">4</span>/<span id="board-size-limit">15</span></span>
+          <span id="dictionary-status" class="status-dot">Loading words...</span>
+        </div>
+        <div id="board" class="board" aria-label="Word board"></div>
+        <div class="phase-note" id="phase-note">Select hand cards to fill every empty board space.</div>
+        <div class="score-row">
+          <div class="score"><small>Total points</small><span id="score">0</span></div>
+          <span id="move-count" class="move-count">0 words</span>
+        </div>
+        <div id="hand" class="hand" aria-label="Letter cards"></div>
+        <div class="action-row">
+          <button id="play-button" type="button" disabled>Build word</button>
+          <button id="smash-button" class="hammer-button" type="button" disabled>Hammer smash</button>
+          <button id="next-round-button" class="next-round-button" type="button" disabled>Next Round</button>
+        </div>
+        <p id="feedback" class="feedback" role="status">Load the dictionary to play.</p>
+      </section>
+
+      <aside class="panel side-panel" aria-labelledby="rules-heading">
+        <div class="panel-label"><span>Round controls</span><span>MAX <span id="hand-limit">12</span></span></div>
+        <h2 id="rules-heading">Choose your letters</h2>
+        <p>Play cards from left to right into the empty board spaces. Once the word scores, select and smash board letters one at a time, then start the next round.</p>
+        <button id="deal-button" class="deal-button" type="button" disabled>Deal new board</button>
+        <div class="history-heading">Built words</div>
+        <div id="history" class="history" aria-label="Built words"><span class="empty-state">Built words will appear here.</span></div>
+        <p class="hint">HAND / STARTS AT <span id="starting-hand-size">8</span>, MAX <span id="hand-limit-hint">16</span><br>BOARD / STARTS AT <span id="board-start-size">4</span>, GROWS TO <span id="board-size-limit-hint">15</span><br>SMASH / UP TO <span id="smash-limit">2</span> LETTERS</p>
+      </aside>
+    </div>
+  </main>
+
+  <script type="py" src="game.py"></script>
+</body>
+</html>

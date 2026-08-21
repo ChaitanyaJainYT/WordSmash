@@ -115,6 +115,20 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .history-word { padding: 7px 9px; border: 1px solid var(--line); border-radius: 3px; color: var(--muted); background: var(--history-bg); font: 500 12px "DM Mono", monospace; }
 .history-word b { color: var(--teal); font-weight: 500; }
 .hint { margin-top: auto !important; padding-top: 24px; font: 11px/1.5 "DM Mono", monospace !important; }
+.theme-toggle { color: var(--ink); }
+.shop-panel { margin-top: 22px; }
+.shop-items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.shop-item { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); }
+.shop-item-wide { grid-column: span 2; }
+.shop-item h2 { margin: 0 0 5px; font-size: 16px; }
+.shop-item p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.shop-action { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.shop-buy-button { min-height: 38px; padding: 0 12px; font-size: 12px; white-space: nowrap; }
+.shop-selection { display: grid; grid-template-columns: repeat(8, 30px); justify-content: end; gap: 5px; width: fit-content; }
+.shop-hand-card { width: 30px; height: 30px; padding: 0; border: 1px solid var(--card-border); color: var(--dark-ink); background: var(--lime); font: 500 12px "DM Mono", monospace; }
+.shop-hand-card.selected { color: var(--dark-ink); background: var(--coral); transform: translateY(-2px); }
+.move-controls label { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font: 11px "DM Mono", monospace; text-transform: uppercase; }
+select { min-height: 36px; padding: 0 7px; border: 1px solid var(--line); border-radius: 4px; color: var(--ink); background: var(--input-bg); font: 12px "DM Mono", monospace; }
 @media (max-width: 700px) {
   main { width: min(100% - 24px, 560px); padding-top: 28px; }
   header { display: block; margin-bottom: 26px; }
@@ -127,4 +141,9 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   .hand { grid-template-columns: repeat(4, var(--tile-size)); gap: 6px; min-height: calc(var(--tile-size) * 4 + 18px); }
   .action-row { flex-direction: column; }
   button { min-height: 48px; }
+  .shop-items { grid-template-columns: 1fr; }
+  .shop-item-wide { grid-column: auto; }
+  .shop-item { align-items: flex-start; flex-direction: column; }
+  .shop-action { justify-content: flex-start; width: 100%; }
+  .shop-selection { grid-template-columns: repeat(4, 30px); justify-content: start; }
 }

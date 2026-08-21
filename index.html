@@ -50,7 +50,7 @@
       </section>
 
       <aside class="panel side-panel" aria-labelledby="rules-heading">
-        <div class="panel-label"><span>Round controls</span><span>MAX <span id="hand-limit">12</span></span></div>
+        <div class="panel-label"><span>Round controls</span><span>MAX <span id="hand-limit">16</span></span></div>
         <h2 id="rules-heading">Choose your letters</h2>
         <p>Play cards from left to right into the empty board spaces. Once the word scores, select and smash board letters one at a time, then start the next round.</p>
         <button id="deal-button" class="deal-button" type="button" disabled>Deal new board</button>
@@ -59,6 +59,47 @@
         <p class="hint">HAND / STARTS AT <span id="starting-hand-size">8</span>, MAX <span id="hand-limit-hint">16</span><br>BOARD / STARTS AT <span id="board-start-size">4</span>, GROWS TO <span id="board-size-limit-hint">15</span><br>SMASH / UP TO <span id="smash-limit">2</span> LETTERS</p>
       </aside>
     </div>
+
+    <section class="panel shop-panel" aria-labelledby="shop-heading">
+      <div class="panel-label"><span id="shop-heading">Powerup shop</span><span>Spend points</span></div>
+      <div class="shop-items">
+        <article class="shop-item">
+          <div>
+            <h2>Extra hammer</h2>
+            <p>Increase hammer capacity by one.</p>
+          </div>
+          <button class="shop-buy-button" data-shop-item="extra_hammer" type="button" disabled>Buy for <span data-shop-price="extra_hammer">15</span></button>
+        </article>
+        <article class="shop-item">
+          <div>
+            <h2>Extra hand space</h2>
+            <p>Increase the hand limit by two.</p>
+          </div>
+          <button class="shop-buy-button" data-shop-item="extra_hand_space" type="button" disabled>Buy for <span data-shop-price="extra_hand_space">30</span></button>
+        </article>
+        <article class="shop-item shop-item-wide">
+          <div>
+            <h2>Replace hand tiles</h2>
+            <p>Replace exactly two hand tiles with new letters in the same positions.</p>
+          </div>
+          <div class="shop-action">
+            <div id="shop-hand-selection" class="shop-selection" aria-label="Hand tiles to replace"></div>
+            <button class="shop-buy-button" data-shop-item="replace_hand_tiles" type="button" disabled>Replace for <span data-shop-price="replace_hand_tiles">15</span></button>
+          </div>
+        </article>
+        <article class="shop-item shop-item-wide">
+          <div>
+            <h2>Move board tile</h2>
+            <p>Move one board position to another; tiles between them slide.</p>
+          </div>
+          <div class="shop-action move-controls">
+            <label>From <select id="move-source" aria-label="Board tile to move" disabled></select></label>
+            <label>To <select id="move-destination" aria-label="Destination board position" disabled></select></label>
+            <button class="shop-buy-button" data-shop-item="move_board_tile" type="button" disabled>Move for <span data-shop-price="move_board_tile">30</span></button>
+          </div>
+        </article>
+      </div>
+    </section>
   </main>
 
   <script type="py" src="game.py"></script>

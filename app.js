@@ -41,14 +41,18 @@ const ui = {
   smashButton: document.querySelector("#smash-button"),
   nextRoundButton: document.querySelector("#next-round-button"),
   shopHandSelection: document.querySelector("#shop-hand-selection"),
-  moveSource: document.querySelector("#move-source"),
-  moveDestination: document.querySelector("#move-destination"),
+  moveSelection: document.querySelector("#move-selection"),
+  moveLeft: document.querySelector("#move-left"),
+  moveRight: document.querySelector("#move-right"),
+  moveReset: document.querySelector("#move-reset"),
   shopBuyButtons: [...document.querySelectorAll("[data-shop-item]")],
 };
 
 let selectedHand = new Set();
 let selectedBoard = new Set();
 let selectedShopHand = new Set();
+let moveSourceIndex = null;
+let moveDestinationIndex = null;
 let currentState = null;
 let previousState = null;
 let audioContext = null;
@@ -91,13 +95,25 @@ function setControls(enabled) {
   ui.nextRoundButton.disabled = !enabled;
 }
 
+function renderMoveSelection(state, moveEnabled) {
+  const board = state.board.slice();
+  const selected = moveSourceIndex !== null;
+  if (selected && moveDestinationIndex !== null) {
+    const movedTile = board.splice(moveSourceIndex, 1)[0];
+    board.splice(moveDestinationIndex, 0, movedTile);
+  }
+  ui.moveSelection.innerHTML = `<div class="move-board-copy" aria-label="Clickable copy of the board">${board.map((letter, index) => `<button class="move-copy-tile ${letter ? "filled" : "empty"} ${selected && index === moveDestinationIndex ? "selected" : ""}" data-move-copy-index="${index}" type="button" ${moveEnabled ? "" : "disabled"}>${letter ? letter.toUpperCase() : ""}</button>`).join("")}</div>`;
+  ui.moveLeft.disabled = !moveEnabled || !selected || moveDestinationIndex <= 0;
+  ui.moveRight.disabled = !moveEnabled || !selected || moveDestinationIndex >= state.board.length - 1;
+  ui.moveReset.disabled = !moveEnabled || !selected;
+}
+
 function renderShop(state) {
   const shop = state.shop;
   const active = Boolean(shop) && !state.game_over;
   if (!shop) {
     ui.shopBuyButtons.forEach(button => { button.disabled = true; });
-    ui.moveSource.disabled = true;
-    ui.moveDestination.disabled = true;
+    renderMoveSelection(state, false);
     return;
   }
 
@@ -107,17 +123,19 @@ function renderShop(state) {
   const moveEnabled = active && moveItem.affordable;
   selectedShopHand = new Set([...selectedShopHand].filter(index => index < state.hand.length));
   ui.shopHandSelection.innerHTML = state.hand.map((letter, index) => `<button class="shop-hand-card ${selectedShopHand.has(index) ? "selected" : ""}" data-shop-hand-index="${index}" type="button" ${replaceEnabled ? "" : "disabled"}>${letter.toUpperCase()}</button>`).join("");
-  const boardOptions = state.board.map((letter, index) => `<option value="${index}">${index + 1}: ${letter ? letter.toUpperCase() : "empty"}</option>`).join("");
-  ui.moveSource.innerHTML = boardOptions;
-  ui.moveDestination.innerHTML = boardOptions;
-  ui.moveSource.disabled = !moveEnabled;
-  ui.moveDestination.disabled = !moveEnabled;
+  if (!moveEnabled) {
+    moveSourceIndex = null;
+    moveDestinationIndex = null;
+  }
+  renderMoveSelection(state, moveEnabled);
 
   shop.items.forEach(item => {
     const button = document.querySelector(`[data-shop-item="${item.id}"]`);
     button.querySelector(`[data-shop-price="${item.id}"]`).textContent = item.price;
     const ready = item.id === "replace_hand_tiles"
       ? selectedShopHand.size === 2
+      : item.id === "move_board_tile"
+        ? moveSourceIndex !== null && moveDestinationIndex !== null && moveSourceIndex !== moveDestinationIndex
       : true;
     button.disabled = !active || !item.affordable || !ready;
   });
@@ -128,12 +146,14 @@ function purchaseShopItem(itemId) {
   const purchase = { item_id: itemId };
   if (itemId === "replace_hand_tiles") purchase.hand_indexes = [...selectedShopHand];
   if (itemId === "move_board_tile") {
-    purchase.source_index = Number(ui.moveSource.value);
-    purchase.destination_index = Number(ui.moveDestination.value);
+    purchase.source_index = moveSourceIndex;
+    purchase.destination_index = moveDestinationIndex;
   }
   selectedShopHand.clear();
   selectedHand.clear();
   selectedBoard.clear();
+  moveSourceIndex = null;
+  moveDestinationIndex = null;
   window.pyPurchaseShopItem(JSON.stringify(purchase));
 }
 
@@ -232,7 +252,31 @@ function toggleBoard(index) {
 
 ui.board.addEventListener("click", event => {
   const slot = event.target.closest("[data-board-index]");
-  if (slot) toggleBoard(Number(slot.dataset.boardIndex));
+  if (slot && currentState.phase === "smash") toggleBoard(Number(slot.dataset.boardIndex));
+});
+ui.moveSelection.addEventListener("click", event => {
+  const tile = event.target.closest("[data-move-copy-index]");
+  if (!tile || tile.disabled || moveSourceIndex !== null) return;
+  moveSourceIndex = Number(tile.dataset.moveCopyIndex);
+  moveDestinationIndex = moveSourceIndex;
+  render(JSON.stringify({ ...currentState, message: "", kind: "" }));
+});
+ui.moveLeft.addEventListener("click", () => {
+  if (moveDestinationIndex > 0) {
+    moveDestinationIndex -= 1;
+    render(JSON.stringify({ ...currentState, message: "", kind: "" }));
+  }
+});
+ui.moveRight.addEventListener("click", () => {
+  if (moveDestinationIndex < currentState.board.length - 1) {
+    moveDestinationIndex += 1;
+    render(JSON.stringify({ ...currentState, message: "", kind: "" }));
+  }
+});
+ui.moveReset.addEventListener("click", () => {
+  moveSourceIndex = null;
+  moveDestinationIndex = null;
+  render(JSON.stringify({ ...currentState, message: "", kind: "" }));
 });
 ui.hand.addEventListener("click", event => {
   const card = event.target.closest("[data-hand-index]");
@@ -253,6 +297,8 @@ ui.dealButton.addEventListener("click", () => {
   selectedHand.clear();
   selectedBoard.clear();
   selectedShopHand.clear();
+  moveSourceIndex = null;
+  moveDestinationIndex = null;
   playSound("deal");
   window.pyStartRound();
 });

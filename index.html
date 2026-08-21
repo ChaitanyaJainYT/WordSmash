@@ -90,11 +90,15 @@
         <article class="shop-item shop-item-wide">
           <div>
             <h2>Move board tile</h2>
-            <p>Move one board position to another; tiles between them slide.</p>
+            <p>Select a board tile, shift it with the arrows, then confirm the purchase.</p>
           </div>
           <div class="shop-action move-controls">
-            <label>From <select id="move-source" aria-label="Board tile to move" disabled></select></label>
-            <label>To <select id="move-destination" aria-label="Destination board position" disabled></select></label>
+            <div id="move-selection" class="move-selection" role="status" aria-label="Board tile move preview"></div>
+            <div class="move-arrow-controls" aria-label="Move selected board tile">
+              <button id="move-left" class="move-arrow-button" type="button" aria-label="Move selected tile left" disabled>&lsaquo;</button>
+              <button id="move-right" class="move-arrow-button" type="button" aria-label="Move selected tile right" disabled>&rsaquo;</button>
+              <button id="move-reset" class="move-arrow-button reset-button" type="button" aria-label="Choose a different tile" disabled>&olarr;</button>
+            </div>
             <button class="shop-buy-button" data-shop-item="move_board_tile" type="button" disabled>Move for <span data-shop-price="move_board_tile">30</span></button>
           </div>
         </article>

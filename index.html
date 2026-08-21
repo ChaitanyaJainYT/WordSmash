@@ -19,7 +19,13 @@
         <p class="eyebrow">A board word game</p>
         <h1>Word<br>Smash</h1>
       </div>
-      <p class="tagline">Build the word. Score it. Hammer out two letters.</p>
+      <div class="header-tools">
+        <p class="tagline">Build the word. Score it. Hammer out two letters.</p>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">
+          <span class="theme-icon" aria-hidden="true">☾</span>
+          <span class="theme-label">Dark theme</span>
+        </button>
+      </div>
     </header>
 
     <div class="layout">
@@ -44,7 +50,7 @@
       </section>
 
       <aside class="panel side-panel" aria-labelledby="rules-heading">
-        <div class="panel-label"><span>Round controls</span><span>MAX <span id="hand-limit">12</span></span></div>
+        <div class="panel-label"><span>Round controls</span><span>MAX <span id="hand-limit">16</span></span></div>
         <h2 id="rules-heading">Choose your letters</h2>
         <p>Play cards from left to right into the empty board spaces. Once the word scores, select and smash board letters one at a time, then start the next round.</p>
         <button id="deal-button" class="deal-button" type="button" disabled>Deal new board</button>
@@ -53,6 +59,51 @@
         <p class="hint">HAND / STARTS AT <span id="starting-hand-size">8</span>, MAX <span id="hand-limit-hint">16</span><br>BOARD / STARTS AT <span id="board-start-size">4</span>, GROWS TO <span id="board-size-limit-hint">15</span><br>SMASH / UP TO <span id="smash-limit">2</span> LETTERS</p>
       </aside>
     </div>
+
+    <section class="panel shop-panel" aria-labelledby="shop-heading">
+      <div class="panel-label"><span id="shop-heading">Powerup shop</span><span>Spend points</span></div>
+      <div class="shop-items">
+        <article class="shop-item">
+          <div>
+            <h2>Extra hammer</h2>
+            <p>Increase hammer capacity by one.</p>
+          </div>
+          <button class="shop-buy-button" data-shop-item="extra_hammer" type="button" disabled>Buy for <span data-shop-price="extra_hammer">15</span></button>
+        </article>
+        <article class="shop-item">
+          <div>
+            <h2>Extra hand space</h2>
+            <p>Increase the hand limit by two.</p>
+          </div>
+          <button class="shop-buy-button" data-shop-item="extra_hand_space" type="button" disabled>Buy for <span data-shop-price="extra_hand_space">30</span></button>
+        </article>
+        <article class="shop-item shop-item-wide">
+          <div>
+            <h2>Replace hand tiles</h2>
+            <p>Replace exactly two hand tiles with new letters in the same positions.</p>
+          </div>
+          <div class="shop-action">
+            <div id="shop-hand-selection" class="shop-selection" aria-label="Hand tiles to replace"></div>
+            <button class="shop-buy-button" data-shop-item="replace_hand_tiles" type="button" disabled>Replace for <span data-shop-price="replace_hand_tiles">15</span></button>
+          </div>
+        </article>
+        <article class="shop-item shop-item-wide">
+          <div>
+            <h2>Move board tile</h2>
+            <p>Select a board tile, shift it with the arrows, then confirm the purchase.</p>
+          </div>
+          <div class="shop-action move-controls">
+            <div id="move-selection" class="move-selection" role="status" aria-label="Board tile move preview"></div>
+            <div class="move-arrow-controls" aria-label="Move selected board tile">
+              <button id="move-left" class="move-arrow-button" type="button" aria-label="Move selected tile left" disabled>&lsaquo;</button>
+              <button id="move-right" class="move-arrow-button" type="button" aria-label="Move selected tile right" disabled>&rsaquo;</button>
+              <button id="move-reset" class="move-arrow-button reset-button" type="button" aria-label="Choose a different tile" disabled>&olarr;</button>
+            </div>
+            <button class="shop-buy-button" data-shop-item="move_board_tile" type="button" disabled>Move for <span data-shop-price="move_board_tile">30</span></button>
+          </div>
+        </article>
+      </div>
+    </section>
   </main>
 
   <script type="py" src="game.py"></script>

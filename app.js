@@ -1,3 +1,33 @@
+const themeStorageKey = "wordSmash.theme";
+const themeToggle = document.querySelector("#theme-toggle");
+
+function applyTheme(theme) {
+  const isDark = theme === "dark";
+  document.body.dataset.theme = isDark ? "dark" : "light";
+  themeToggle.setAttribute("aria-pressed", String(isDark));
+  themeToggle.querySelector(".theme-icon").textContent = isDark ? "☀" : "☾";
+  themeToggle.querySelector(".theme-label").textContent = isDark ? "Light theme" : "Dark theme";
+}
+
+function getSavedTheme() {
+  try {
+    return localStorage.getItem(themeStorageKey) === "dark" ? "dark" : "light";
+  } catch {
+    return "light";
+  }
+}
+
+applyTheme(getSavedTheme());
+themeToggle.addEventListener("click", () => {
+  const nextTheme = document.body.dataset.theme === "dark" ? "light" : "dark";
+  applyTheme(nextTheme);
+  try {
+    localStorage.setItem(themeStorageKey, nextTheme);
+  } catch {
+    return;
+  }
+});
+
 const ui = {
   status: document.querySelector("#dictionary-status"),
   board: document.querySelector("#board"),
@@ -10,10 +40,19 @@ const ui = {
   playButton: document.querySelector("#play-button"),
   smashButton: document.querySelector("#smash-button"),
   nextRoundButton: document.querySelector("#next-round-button"),
+  shopHandSelection: document.querySelector("#shop-hand-selection"),
+  moveSelection: document.querySelector("#move-selection"),
+  moveLeft: document.querySelector("#move-left"),
+  moveRight: document.querySelector("#move-right"),
+  moveReset: document.querySelector("#move-reset"),
+  shopBuyButtons: [...document.querySelectorAll("[data-shop-item]")],
 };
 
 let selectedHand = new Set();
 let selectedBoard = new Set();
+let selectedShopHand = new Set();
+let moveSourceIndex = null;
+let moveDestinationIndex = null;
 let currentState = null;
 let previousState = null;
 let audioContext = null;
@@ -46,6 +85,7 @@ function playSound(name) {
   if (name === "success") { playTone(520, 0.1, "triangle", 0.03, 0); playTone(700, 0.13, "triangle", 0.03, 0.08); }
   if (name === "smash") playTone(150, 0.12, "square", 0.025);
   if (name === "error") playTone(180, 0.12, "sawtooth", 0.018);
+  if (name === "game-over") { playTone(260, 0.16, "triangle", 0.03, 0); playTone(170, 0.22, "triangle", 0.03, 0.14); playTone(110, 0.3, "sine", 0.025, 0.33); }
 }
 
 function setControls(enabled) {
@@ -55,10 +95,73 @@ function setControls(enabled) {
   ui.nextRoundButton.disabled = !enabled;
 }
 
+function renderMoveSelection(state, moveEnabled) {
+  const board = state.board.slice();
+  const selected = moveSourceIndex !== null;
+  if (selected && moveDestinationIndex !== null) {
+    const movedTile = board.splice(moveSourceIndex, 1)[0];
+    board.splice(moveDestinationIndex, 0, movedTile);
+  }
+  ui.moveSelection.innerHTML = `<div class="move-board-copy" aria-label="Clickable copy of the board">${board.map((letter, index) => `<button class="move-copy-tile ${letter ? "filled" : "empty"} ${selected && index === moveDestinationIndex ? "selected" : ""}" data-move-copy-index="${index}" type="button" ${moveEnabled ? "" : "disabled"}>${letter ? letter.toUpperCase() : ""}</button>`).join("")}</div>`;
+  ui.moveLeft.disabled = !moveEnabled || !selected || moveDestinationIndex <= 0;
+  ui.moveRight.disabled = !moveEnabled || !selected || moveDestinationIndex >= state.board.length - 1;
+  ui.moveReset.disabled = !moveEnabled || !selected;
+}
+
+function renderShop(state) {
+  const shop = state.shop;
+  const active = Boolean(shop) && !state.game_over;
+  if (!shop) {
+    ui.shopBuyButtons.forEach(button => { button.disabled = true; });
+    renderMoveSelection(state, false);
+    return;
+  }
+
+  const replaceItem = shop.items.find(item => item.id === "replace_hand_tiles");
+  const moveItem = shop.items.find(item => item.id === "move_board_tile");
+  const replaceEnabled = active && replaceItem.affordable;
+  const moveEnabled = active && moveItem.affordable;
+  selectedShopHand = new Set([...selectedShopHand].filter(index => index < state.hand.length));
+  ui.shopHandSelection.innerHTML = state.hand.map((letter, index) => `<button class="shop-hand-card ${selectedShopHand.has(index) ? "selected" : ""}" data-shop-hand-index="${index}" type="button" ${replaceEnabled ? "" : "disabled"}>${letter.toUpperCase()}</button>`).join("");
+  if (!moveEnabled) {
+    moveSourceIndex = null;
+    moveDestinationIndex = null;
+  }
+  renderMoveSelection(state, moveEnabled);
+
+  shop.items.forEach(item => {
+    const button = document.querySelector(`[data-shop-item="${item.id}"]`);
+    button.querySelector(`[data-shop-price="${item.id}"]`).textContent = item.price;
+    const ready = item.id === "replace_hand_tiles"
+      ? selectedShopHand.size === 2
+      : item.id === "move_board_tile"
+        ? moveSourceIndex !== null && moveDestinationIndex !== null && moveSourceIndex !== moveDestinationIndex
+      : true;
+    button.disabled = !active || !item.affordable || !ready;
+  });
+}
+
+function purchaseShopItem(itemId) {
+  if (typeof window.pyPurchaseShopItem !== "function") return;
+  const purchase = { item_id: itemId };
+  if (itemId === "replace_hand_tiles") purchase.hand_indexes = [...selectedShopHand];
+  if (itemId === "move_board_tile") {
+    purchase.source_index = moveSourceIndex;
+    purchase.destination_index = moveDestinationIndex;
+  }
+  selectedShopHand.clear();
+  selectedHand.clear();
+  selectedBoard.clear();
+  moveSourceIndex = null;
+  moveDestinationIndex = null;
+  window.pyPurchaseShopItem(JSON.stringify(purchase));
+}
+
 function render(stateText) {
   previousState = currentState;
   currentState = JSON.parse(stateText);
   const state = currentState;
+  renderShop(state);
   document.querySelector("#hand-limit").textContent = state.hand_limit;
   document.querySelector("#hand-limit-hint").textContent = state.hand_limit;
   document.querySelector("#board-size-limit").textContent = state.board_max_size;
@@ -105,6 +208,7 @@ function render(stateText) {
     : `<span class="empty-state">Built words will appear here.</span>`;
   ui.feedback.textContent = state.message;
   ui.feedback.className = `feedback ${state.kind}`.trim();
+  if (state.game_over && !previousState?.game_over) playSound("game-over");
   if (state.kind === "success") playSound(previousState?.phase === "smash" ? "smash" : "success");
   if (state.kind === "error") playSound("error");
 }
@@ -148,15 +252,53 @@ function toggleBoard(index) {
 
 ui.board.addEventListener("click", event => {
   const slot = event.target.closest("[data-board-index]");
-  if (slot) toggleBoard(Number(slot.dataset.boardIndex));
+  if (slot && currentState.phase === "smash") toggleBoard(Number(slot.dataset.boardIndex));
+});
+ui.moveSelection.addEventListener("click", event => {
+  const tile = event.target.closest("[data-move-copy-index]");
+  if (!tile || tile.disabled || moveSourceIndex !== null) return;
+  moveSourceIndex = Number(tile.dataset.moveCopyIndex);
+  moveDestinationIndex = moveSourceIndex;
+  render(JSON.stringify({ ...currentState, message: "", kind: "" }));
+});
+ui.moveLeft.addEventListener("click", () => {
+  if (moveDestinationIndex > 0) {
+    moveDestinationIndex -= 1;
+    render(JSON.stringify({ ...currentState, message: "", kind: "" }));
+  }
+});
+ui.moveRight.addEventListener("click", () => {
+  if (moveDestinationIndex < currentState.board.length - 1) {
+    moveDestinationIndex += 1;
+    render(JSON.stringify({ ...currentState, message: "", kind: "" }));
+  }
+});
+ui.moveReset.addEventListener("click", () => {
+  moveSourceIndex = null;
+  moveDestinationIndex = null;
+  render(JSON.stringify({ ...currentState, message: "", kind: "" }));
 });
 ui.hand.addEventListener("click", event => {
   const card = event.target.closest("[data-hand-index]");
   if (card) toggleHand(Number(card.dataset.handIndex));
 });
+ui.shopHandSelection.addEventListener("click", event => {
+  const card = event.target.closest("[data-shop-hand-index]");
+  if (!card) return;
+  const index = Number(card.dataset.shopHandIndex);
+  if (selectedShopHand.has(index)) selectedShopHand.delete(index);
+  else if (selectedShopHand.size < 2) selectedShopHand.add(index);
+  render(JSON.stringify({ ...currentState, message: "", kind: "" }));
+});
+ui.shopBuyButtons.forEach(button => {
+  button.addEventListener("click", () => purchaseShopItem(button.dataset.shopItem));
+});
 ui.dealButton.addEventListener("click", () => {
   selectedHand.clear();
   selectedBoard.clear();
+  selectedShopHand.clear();
+  moveSourceIndex = null;
+  moveDestinationIndex = null;
   playSound("deal");
   window.pyStartRound();
 });

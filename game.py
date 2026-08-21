@@ -19,6 +19,13 @@ MIN_WORD_LENGTH = 4
 STARTING_BOARD_SIZE = 4
 MAX_BOARD_SIZE = 15
 MAX_OPENING_DEALS = 3
+SHOP_PRICE_STEP = 15
+SHOP_ITEMS = {
+    "extra_hammer": {"label": "Extra hammer", "description": "Increase hammer capacity by 1.", "price": 15},
+    "extra_hand_space": {"label": "Extra hand space", "description": "Increase the hand limit by 2.", "price": 15},
+    "replace_hand_tiles": {"label": "Replace hand tiles", "description": "Replace two selected hand tiles in the same positions.", "price": 15},
+    "move_board_tile": {"label": "Move board tile", "description": "Move one board slot to another position.", "price": 15},
+}
 
 SCORES = {
     "a": 1, "b": 3, "c": 3, "d": 2, "e": 1, "f": 4, "g": 2,
@@ -56,9 +63,12 @@ class WordSmashGame:
         self.game_over_message = ""
         self.cards_played_this_turn = 0
         self.smashes_used_this_turn = 0
+        self.hand_limit = MAX_HAND_SIZE
+        self.max_hammer_smash = MAX_HAMMER_SMASH
+        self.shop_purchases = {item_id: 0 for item_id in SHOP_ITEMS}
 
     def deal_hand(self, count):
-        available = max(0, MAX_HAND_SIZE - len(self.hand))
+        available = max(0, self.hand_limit - len(self.hand))
         letters = list(LETTER_WEIGHTS)
         weights = [11 - SCORES[letter] for letter in letters] if USE_SCORE_FREQUENCY else [LETTER_WEIGHTS[letter] for letter in letters]
         self.hand.extend(random.choices(letters, weights=weights, k=min(count, available)))
@@ -137,7 +147,7 @@ class WordSmashGame:
         if self.phase != "smash":
             raise ValueError("Build a valid word before smashing.")
         selected_indexes = sorted(set(selected_indexes))
-        remaining_smashes = MAX_HAMMER_SMASH - self.smashes_used_this_turn
+        remaining_smashes = self.max_hammer_smash - self.smashes_used_this_turn
         if not selected_indexes:
             raise ValueError("Select at least one board letter to smash.")
         if len(selected_indexes) > remaining_smashes:
@@ -193,6 +203,63 @@ class WordSmashGame:
             self.game_over = False
             self.game_over_message = ""
 
+    def shop_price(self, item_id):
+        return SHOP_ITEMS[item_id]["price"] + self.shop_purchases[item_id] * SHOP_PRICE_STEP
+
+    def shop_state(self):
+        return {
+            "items": [
+                {
+                    "id": item_id,
+                    "label": details["label"],
+                    "description": details["description"],
+                    "price": self.shop_price(item_id),
+                    "purchases": self.shop_purchases[item_id],
+                    "affordable": self.score >= self.shop_price(item_id),
+                }
+                for item_id, details in SHOP_ITEMS.items()
+            ],
+            "hand_limit": self.hand_limit,
+            "max_hammer_smash": self.max_hammer_smash,
+        }
+
+    def purchase_shop_item(self, item_id, hand_indexes=None, source_index=None, destination_index=None):
+        if self.game_over:
+            raise ValueError("The shop is unavailable after game over. Deal a new board to start again.")
+        if item_id not in SHOP_ITEMS:
+            raise ValueError("That shop item is unavailable.")
+
+        price = self.shop_price(item_id)
+        if self.score < price:
+            raise ValueError(f"You need {price} points to buy {SHOP_ITEMS[item_id]['label'].lower()}.")
+
+        if item_id == "replace_hand_tiles":
+            selected = sorted(set(hand_indexes or []))
+            if len(selected) != 2:
+                raise ValueError("Select exactly two hand tiles to replace.")
+            if any(index < 0 or index >= len(self.hand) for index in selected):
+                raise ValueError("That hand tile is not available.")
+        elif item_id == "move_board_tile":
+            if source_index is None or destination_index is None:
+                raise ValueError("Choose a board tile and a destination.")
+            if not 0 <= source_index < len(self.board) or not 0 <= destination_index < len(self.board):
+                raise ValueError("Choose positions on the current board.")
+
+        self.score -= price
+        self.shop_purchases[item_id] += 1
+        if item_id == "extra_hammer":
+            self.max_hammer_smash += 1
+        elif item_id == "extra_hand_space":
+            self.hand_limit += 2
+        elif item_id == "replace_hand_tiles":
+            letters = list(LETTER_WEIGHTS)
+            weights = [11 - SCORES[letter] for letter in letters] if USE_SCORE_FREQUENCY else [LETTER_WEIGHTS[letter] for letter in letters]
+            for index in selected:
+                self.hand[index] = random.choices(letters, weights=weights, k=1)[0]
+        elif item_id == "move_board_tile":
+            moved_tile = self.board.pop(source_index)
+            self.board.insert(destination_index, moved_tile)
+
     def state(self, message="", kind=""):
         return json.dumps({
             "hand": self.hand,
@@ -207,12 +274,13 @@ class WordSmashGame:
             "phase": self.phase,
             "game_over": self.game_over,
             "game_over_message": self.game_over_message,
-            "hand_limit": MAX_HAND_SIZE,
+            "hand_limit": self.hand_limit,
             "starting_hand_size": STARTING_HAND_SIZE,
             "board_start_size": STARTING_BOARD_SIZE,
             "board_max_size": MAX_BOARD_SIZE,
-            "max_hammer_smash": MAX_HAMMER_SMASH,
+            "max_hammer_smash": self.max_hammer_smash,
             "smashes_used": self.smashes_used_this_turn,
+            "shop": self.shop_state(),
             "message": message,
             "kind": kind,
         })
@@ -249,7 +317,7 @@ def smash_selected(value="", *_args):
     try:
         selected_indexes = parse_indexes(value)
         game.smash(selected_indexes)
-        remaining = MAX_HAMMER_SMASH - game.smashes_used_this_turn
+        remaining = game.max_hammer_smash - game.smashes_used_this_turn
         render(f"Letter smashed. {remaining} hammer smash{'es' if remaining != 1 else ''} remaining. Click Next Round when ready.", "success")
     except ValueError as error:
         render(str(error), "error")
@@ -265,6 +333,22 @@ def next_round(*_args):
         else:
             render("Select hand cards to build the next word.", "success")
     except ValueError as error:
+        render(str(error), "error")
+
+
+def purchase_shop_item(value="", *_args):
+    if not game:
+        return render("Deal a board to start shopping.", "error")
+    try:
+        purchase = json.loads(str(value))
+        game.purchase_shop_item(
+            purchase.get("item_id", ""),
+            purchase.get("hand_indexes"),
+            purchase.get("source_index"),
+            purchase.get("destination_index"),
+        )
+        render("Shop purchase complete.", "success")
+    except (ValueError, TypeError, json.JSONDecodeError) as error:
         render(str(error), "error")
 
 
@@ -300,6 +384,7 @@ async def load_words():
         window.pyPlaySelected = create_proxy(play_selected)
         window.pySmashSelected = create_proxy(smash_selected)
         window.pyNextRound = create_proxy(next_round)
+        window.pyPurchaseShopItem = create_proxy(purchase_shop_item)
         window.wordSmashUI.setReady(len(WORDS))
         start_round()
     except Exception as error:

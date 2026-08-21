@@ -44,9 +44,9 @@ For a temporary inverse-score trial, set `USE_SCORE_FREQUENCY = True` in `game.p
 Spend scored points on powerups at any time during an active round. Each item has its own price, which increases by 15 after every purchase and resets when a new board is dealt.
 
 - **Extra hammer** costs 15 initially and increases the hammer capacity by 1 immediately and for future turns.
-- **Extra hand space** costs 30 initially and increases the hand limit by 2 for the current run.
+- **Extra hand space** costs 15 initially and increases the hand limit by 2 for the current run.
 - **Replace hand tiles** costs 15 initially. Select exactly two hand tiles to replace with random letters in the same positions.
-- **Move board tile** costs 30 initially. Select any position, including an empty one, in the shop's board copy, shift it left or right with the arrow buttons, and pay to apply the move; intervening positions slide.
+- **Move board tile** costs 15 initially. Select any position, including an empty one, in the shop's board copy, shift it left or right with the arrow buttons, and pay to apply the move; intervening positions slide.
 
 Shop purchases subtract from the existing score. The shop is unavailable after game over. Dealing a new board resets the score, upgrades, purchase counts, and item prices.
 

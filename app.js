@@ -1,3 +1,33 @@
+const themeStorageKey = "wordSmash.theme";
+const themeToggle = document.querySelector("#theme-toggle");
+
+function applyTheme(theme) {
+  const isDark = theme === "dark";
+  document.body.dataset.theme = isDark ? "dark" : "light";
+  themeToggle.setAttribute("aria-pressed", String(isDark));
+  themeToggle.querySelector(".theme-icon").textContent = isDark ? "☀" : "☾";
+  themeToggle.querySelector(".theme-label").textContent = isDark ? "Light theme" : "Dark theme";
+}
+
+function getSavedTheme() {
+  try {
+    return localStorage.getItem(themeStorageKey) === "dark" ? "dark" : "light";
+  } catch {
+    return "light";
+  }
+}
+
+applyTheme(getSavedTheme());
+themeToggle.addEventListener("click", () => {
+  const nextTheme = document.body.dataset.theme === "dark" ? "light" : "dark";
+  applyTheme(nextTheme);
+  try {
+    localStorage.setItem(themeStorageKey, nextTheme);
+  } catch {
+    return;
+  }
+});
+
 const ui = {
   status: document.querySelector("#dictionary-status"),
   board: document.querySelector("#board"),

@@ -9,9 +9,6 @@ from js import fetch, window
 from pyodide.ffi import create_proxy
 
 WORD_LIST_FILE = "Collins Scrabble Words (2019).txt"
-LETTER_FREQUENCY_FILE = "letter_frequency.json"
-# Keep False to use letter_frequency.json; set True to trial inverse Scrabble-score weighting.
-USE_SCORE_FREQUENCY = True
 STARTING_HAND_SIZE = 8
 MAX_HAND_SIZE = 8
 MAX_HAMMER_SMASH = 2
@@ -19,6 +16,13 @@ MIN_WORD_LENGTH = 4
 STARTING_BOARD_SIZE = 4
 MAX_BOARD_SIZE = 15
 MAX_OPENING_DEALS = 3
+
+LETTER_DISTRIBUTION = {
+    "a": 9, "b": 2, "c": 2, "d": 4, "e": 12, "f": 2, "g": 3,
+    "h": 2, "i": 9, "j": 1, "k": 1, "l": 4, "m": 2, "n": 6,
+    "o": 8, "p": 2, "q": 1, "r": 6, "s": 4, "t": 6, "u": 4,
+    "v": 2, "w": 2, "x": 1, "y": 2, "z": 1,
+}
 
 MESSAGES = {
     "round_over": "This round is over. Deal a new board to play again.",
@@ -47,7 +51,6 @@ SCORES = {
 }
 
 WORDS = set()
-LETTER_WEIGHTS = {}
 game = None
 
 
@@ -81,8 +84,8 @@ class WordSmashGame:
 
     def deal_hand(self, count):
         available = max(0, self.hand_limit - len(self.hand))
-        letters = list(LETTER_WEIGHTS)
-        weights = [11 - SCORES[letter] for letter in letters] if USE_SCORE_FREQUENCY else [LETTER_WEIGHTS[letter] for letter in letters]
+        letters = list(LETTER_DISTRIBUTION)
+        weights = [LETTER_DISTRIBUTION[letter] for letter in letters]
         self.hand.extend(random.choices(letters, weights=weights, k=min(count, available)))
 
     def start(self):
@@ -264,8 +267,8 @@ class WordSmashGame:
         elif item_id == "extra_hand_space":
             self.hand_limit += 4
         elif item_id == "replace_hand_tiles":
-            letters = list(LETTER_WEIGHTS)
-            weights = [11 - SCORES[letter] for letter in letters] if USE_SCORE_FREQUENCY else [LETTER_WEIGHTS[letter] for letter in letters]
+            letters = list(LETTER_DISTRIBUTION)
+            weights = [LETTER_DISTRIBUTION[letter] for letter in letters]
             for index in selected:
                 self.hand[index] = random.choices(letters, weights=weights, k=1)[0]
         elif item_id == "move_board_tile":
@@ -374,23 +377,10 @@ async def load_words():
         word_response = await fetch(WORD_LIST_FILE)
         if not word_response.ok:
             raise RuntimeError(f"Could not load {WORD_LIST_FILE}")
-        frequency_response = await fetch(LETTER_FREQUENCY_FILE)
-        if not frequency_response.ok:
-            raise RuntimeError(f"Could not load {LETTER_FREQUENCY_FILE}")
-
         text = await word_response.text()
         WORDS.update(line.strip().lower() for line in text.splitlines() if line.strip().isalpha())
         if not WORDS:
             raise RuntimeError("The dictionary has no usable words.")
-
-        frequency_data = json.loads(await frequency_response.text())
-        LETTER_WEIGHTS.update({
-            letter: details["percentage"]
-            for letter, details in frequency_data["letters"].items()
-            if letter.isalpha() and details["percentage"] > 0
-        })
-        if len(LETTER_WEIGHTS) != 26:
-            raise RuntimeError("The letter-frequency file must contain all 26 letters.")
 
         window.pyStartRound = create_proxy(start_round)
         window.pyPlaySelected = create_proxy(play_selected)

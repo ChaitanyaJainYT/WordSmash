@@ -24,9 +24,7 @@ WORD_LIST_FILE = "Collins Scrabble Words (2019).txt"
 
 Use another sibling `.txt` file with one word per line if desired.
 
-Letter draws are weighted using `letter_frequency.json`, which is generated from the supplied dictionary. Change that JSON file to tune the letter probabilities.
-
-For a temporary inverse-score trial, set `USE_SCORE_FREQUENCY = True` in `game.py`. This keeps the JSON loader intact but gives score-1 letters weight 10 and score-10 letters weight 1. Leave it `False` to use the current JSON frequency logic.
+Letter draws use a fixed 98-tile distribution based on standard Scrabble letter counts. Common letters appear more often, while high-value letters such as J, X, Q, and Z appear less often but remain possible.
 
 ## Gameplay
 

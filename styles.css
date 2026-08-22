@@ -94,7 +94,7 @@ h1 { margin: 0; font-size: clamp(42px, 8vw, 86px); line-height: .87; letter-spac
 .score-pulse { animation: score-pulse .28s ease-out; }
 .score small { display: block; margin-bottom: 8px; color: var(--muted); font: 500 10px/1 "DM Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
 .move-count { color: var(--muted); font-size: 14px; }
-.action-row { display: flex; gap: 10px; }
+.action-row { display: flex; justify-content: space-between; gap: 10px; }
 .action-row button { min-height: 48px; }
 #play-button { background: var(--teal); }
 .hammer-button { background: var(--coral); }

@@ -19,6 +19,18 @@ MIN_WORD_LENGTH = 4
 STARTING_BOARD_SIZE = 4
 MAX_BOARD_SIZE = 15
 MAX_OPENING_DEALS = 3
+
+MESSAGES = {
+    "round_over": "This round is over. Deal a new board to play again.",
+    "hand_unavailable": "That hand card is unavailable.",
+    "build_before_smash": "Build a valid word before smashing letters.",
+    "build_before_next_round": "Build a valid word before starting the next round.",
+    "deal_to_play": "Deal a board to start playing.",
+    "deal_to_shop": "Deal a board to start shopping.",
+    "start_round": "Create a unique word of at least 4 letters.",
+    "next_round": "Select hand cards to build the next word.",
+}
+
 SHOP_PRICE_STEP = 15
 SHOP_ITEMS = {
     "extra_hammer": {"label": "Extra hammer", "description": "Increase hammer capacity by 1.", "price": 15},
@@ -87,7 +99,7 @@ class WordSmashGame:
                 return
 
         self.game_over = True
-        self.game_over_message = f"Game over: no 4-letter word can be built after {MAX_OPENING_DEALS} deals. Deal a new board to try again."
+        self.game_over_message = f"Game over: no 4-letter word was possible after {MAX_OPENING_DEALS} deals. Deal a new board to try again."
 
     def empty_slots(self):
         return [index for index, letter in enumerate(self.board) if letter is None]
@@ -99,20 +111,20 @@ class WordSmashGame:
 
     def play(self, selected_indexes):
         if self.game_over:
-            raise ValueError("This round is over. Deal a new board to play again.")
+            raise ValueError(MESSAGES["round_over"])
         if self.phase != "build":
             raise ValueError("Smash up to two letters before building again.")
         if len(set(selected_indexes)) != len(selected_indexes):
             raise ValueError("Select each hand card only once.")
         if any(index < 0 or index >= len(self.hand) for index in selected_indexes):
-            raise ValueError("That hand card is not available.")
+            raise ValueError(MESSAGES["hand_unavailable"])
 
         required_cards = self.required_cards()
         empty_slots = self.empty_slots()
         if len(selected_indexes) < required_cards:
-            raise ValueError(f"Select at least {required_cards} hand card{'s' if required_cards != 1 else ''} to fill every internal gap.")
+            raise ValueError(f"Select at least {required_cards} card{'s' if required_cards != 1 else ''} to fill every gap.")
         if len(selected_indexes) > len(empty_slots):
-            raise ValueError(f"Select no more than {len(empty_slots)} available board space{'s' if len(empty_slots) != 1 else ''}.")
+            raise ValueError(f"Select no more than {len(empty_slots)} card{'s' if len(empty_slots) != 1 else ''}; only {len(empty_slots)} board space{'s' if len(empty_slots) != 1 else ''} {'are' if len(empty_slots) != 1 else 'is'} open.")
 
         candidate_board = self.board[:]
         selected_letters = [self.hand[index] for index in selected_indexes]
@@ -121,11 +133,11 @@ class WordSmashGame:
         last_filled = max(index for index, letter in enumerate(candidate_board) if letter is not None)
         word = "".join(candidate_board[:last_filled + 1])
         if len(word) < MIN_WORD_LENGTH:
-            raise ValueError("Board words must be at least 4 letters long.")
+            raise ValueError("Words must be at least 4 letters long.")
         if any(letter is None for letter in candidate_board[:last_filled + 1]):
-            raise ValueError("Fill every empty space inside the word.")
+            raise ValueError("Fill every space inside the word.")
         if word not in self.words:
-            raise ValueError(f"\"{word.upper()}\" is not in the dictionary. Try different letters.")
+            raise ValueError(f"\"{word.upper()}\" is not in the dictionary. Try another word.")
         if word in self.history:
             raise ValueError("You already built that word this round.")
 
@@ -143,9 +155,9 @@ class WordSmashGame:
 
     def smash(self, selected_indexes):
         if self.game_over:
-            raise ValueError("This round is over. Deal a new board to play again.")
+            raise ValueError(MESSAGES["round_over"])
         if self.phase != "smash":
-            raise ValueError("Build a valid word before smashing.")
+            raise ValueError(MESSAGES["build_before_smash"])
         selected_indexes = sorted(set(selected_indexes))
         remaining_smashes = self.max_hammer_smash - self.smashes_used_this_turn
         if not selected_indexes:
@@ -153,7 +165,7 @@ class WordSmashGame:
         if len(selected_indexes) > remaining_smashes:
             raise ValueError(f"You can select at most {remaining_smashes} more board letter{'s' if remaining_smashes != 1 else ''} to smash.")
         if any(index < 0 or index >= len(self.board) or self.board[index] is None for index in selected_indexes):
-            raise ValueError("Select occupied board letters to smash.")
+            raise ValueError("Select filled board letters to smash.")
 
         for index in selected_indexes:
             self.board[index] = None
@@ -161,9 +173,9 @@ class WordSmashGame:
 
     def next_round(self):
         if self.game_over:
-            raise ValueError("This round is over. Deal a new board to play again.")
+            raise ValueError(MESSAGES["round_over"])
         if self.phase != "smash":
-            raise ValueError("Build a valid word before starting the next round.")
+            raise ValueError(MESSAGES["build_before_next_round"])
         refill_count = self.cards_played_this_turn + (MAX_HAMMER_SMASH - self.smashes_used_this_turn)
         self.deal_hand(refill_count)
         self.phase = "build"
@@ -198,7 +210,7 @@ class WordSmashGame:
             self.game_over_message = "Game over: the board is full."
         elif not self.has_valid_move():
             self.game_over = True
-            self.game_over_message = "Game over: no valid word can be made from your hand and the letters on the board."
+            self.game_over_message = "Game over: no valid word can be built from your hand and board."
         else:
             self.game_over = False
             self.game_over_message = ""
@@ -225,13 +237,13 @@ class WordSmashGame:
 
     def purchase_shop_item(self, item_id, hand_indexes=None, source_index=None, destination_index=None):
         if self.game_over:
-            raise ValueError("The shop is unavailable after game over. Deal a new board to start again.")
+            raise ValueError("The shop is closed after game over. Deal a new board to continue.")
         if item_id not in SHOP_ITEMS:
-            raise ValueError("That shop item is unavailable.")
+            raise ValueError("That power-up is unavailable.")
 
         price = self.shop_price(item_id)
         if self.score < price:
-            raise ValueError(f"You need {price} points to buy {SHOP_ITEMS[item_id]['label'].lower()}.")
+            raise ValueError(f"You need {price} more points to buy {SHOP_ITEMS[item_id]['label'].lower()}.")
 
         if item_id == "replace_hand_tiles":
             selected = sorted(set(hand_indexes or []))
@@ -298,22 +310,22 @@ def start_round(*_args):
     if game.game_over:
         render(game.game_over_message, "error")
     else:
-        render("Select hand cards to fill the board from left to right.", "success")
+        render(MESSAGES["start_round"], "success")
 
 
 def play_selected(value="", *_args):
     if not game:
-        return render("Deal a board to start playing.", "error")
+        return render(MESSAGES["deal_to_play"], "error")
     try:
         points = game.play(parse_indexes(value))
-        render(f"{game.history[-1].upper()} scored {points}. Select up to two letters to smash.", "success")
+        render(f"{game.history[-1].upper()} scored {points}. Select letters on the board to smash.", "success")
     except ValueError as error:
         render(str(error), "error")
 
 
 def smash_selected(value="", *_args):
     if not game:
-        return render("Deal a board to start playing.", "error")
+        return render(MESSAGES["deal_to_play"], "error")
     try:
         selected_indexes = parse_indexes(value)
         game.smash(selected_indexes)
@@ -325,20 +337,20 @@ def smash_selected(value="", *_args):
 
 def next_round(*_args):
     if not game:
-        return render("Deal a board to start playing.", "error")
+        return render(MESSAGES["deal_to_play"], "error")
     try:
         game.next_round()
         if game.game_over:
             render(game.game_over_message, "error")
         else:
-            render("Select hand cards to build the next word.", "success")
+            render(MESSAGES["next_round"], "success")
     except ValueError as error:
         render(str(error), "error")
 
 
 def purchase_shop_item(value="", *_args):
     if not game:
-        return render("Deal a board to start shopping.", "error")
+        return render(MESSAGES["deal_to_shop"], "error")
     try:
         purchase = json.loads(str(value))
         game.purchase_shop_item(
@@ -347,7 +359,7 @@ def purchase_shop_item(value="", *_args):
             purchase.get("source_index"),
             purchase.get("destination_index"),
         )
-        render("Shop purchase complete.", "success")
+        render("Power-up purchased.", "success")
     except (ValueError, TypeError, json.JSONDecodeError) as error:
         render(str(error), "error")
 
@@ -369,7 +381,7 @@ async def load_words():
         text = await word_response.text()
         WORDS.update(line.strip().lower() for line in text.splitlines() if line.strip().isalpha())
         if not WORDS:
-            raise RuntimeError("The dictionary contains no usable words.")
+            raise RuntimeError("The dictionary has no usable words.")
 
         frequency_data = json.loads(await frequency_response.text())
         LETTER_WEIGHTS.update({
@@ -378,7 +390,7 @@ async def load_words():
             if letter.isalpha() and details["percentage"] > 0
         })
         if len(LETTER_WEIGHTS) != 26:
-            raise RuntimeError("The letter frequency file must contain all 26 letters.")
+            raise RuntimeError("The letter-frequency file must contain all 26 letters.")
 
         window.pyStartRound = create_proxy(start_round)
         window.pyPlaySelected = create_proxy(play_selected)

@@ -6,7 +6,7 @@ function applyTheme(theme) {
   document.body.dataset.theme = isDark ? "dark" : "light";
   themeToggle.setAttribute("aria-pressed", String(isDark));
   themeToggle.querySelector(".theme-icon").textContent = isDark ? "☀" : "☾";
-  themeToggle.querySelector(".theme-label").textContent = isDark ? "Light theme" : "Dark theme";
+  themeToggle.querySelector(".theme-label").textContent = isDark ? "Use light theme" : "Use dark theme";
 }
 
 function getSavedTheme() {
@@ -30,6 +30,7 @@ themeToggle.addEventListener("click", () => {
 
 const ui = {
   status: document.querySelector("#dictionary-status"),
+  playPanel: document.querySelector(".play-panel"),
   board: document.querySelector("#board"),
   hand: document.querySelector("#hand"),
   score: document.querySelector("#score"),
@@ -102,7 +103,7 @@ function renderMoveSelection(state, moveEnabled) {
     const movedTile = board.splice(moveSourceIndex, 1)[0];
     board.splice(moveDestinationIndex, 0, movedTile);
   }
-  ui.moveSelection.innerHTML = `<div class="move-board-copy" aria-label="Clickable copy of the board">${board.map((letter, index) => `<button class="move-copy-tile ${letter ? "filled" : "empty"} ${selected && index === moveDestinationIndex ? "selected" : ""}" data-move-copy-index="${index}" type="button" ${moveEnabled ? "" : "disabled"}>${letter ? letter.toUpperCase() : ""}</button>`).join("")}</div>`;
+  ui.moveSelection.innerHTML = `<div class="move-board-copy" aria-label="Select a board tile to move">${board.map((letter, index) => `<button class="move-copy-tile ${letter ? "filled" : "empty"} ${selected && index === moveDestinationIndex ? "selected" : ""}" data-move-copy-index="${index}" type="button" aria-label="${letter ? `Letter ${letter.toUpperCase()}, worth ${state.letter_points[letter]} points` : "Empty board space"}" ${moveEnabled ? "" : "disabled"}>${letter ? letter.toUpperCase() : ""}</button>`).join("")}</div>`;
   ui.moveLeft.disabled = !moveEnabled || !selected || moveDestinationIndex <= 0;
   ui.moveRight.disabled = !moveEnabled || !selected || moveDestinationIndex >= state.board.length - 1;
   ui.moveReset.disabled = !moveEnabled || !selected;
@@ -186,8 +187,8 @@ function render(stateText) {
   document.querySelector("#phase-note").textContent = state.game_over
     ? "Round over. Deal a new board to play again."
     : state.phase === "build"
-      ? `Select at least ${requiredCards} hand card${requiredCards === 1 ? "" : "s"}. Extra cards extend the word into trailing spaces.`
-      : `Word scored. Select up to ${state.max_hammer_smash - state.smashes_used} board letters and hammer smash.`;
+      ? `Select at least ${requiredCards} card${requiredCards === 1 ? "" : "s"} to fill the word. Extra cards fill trailing spaces.`
+      : `Word scored. Select up to ${state.max_hammer_smash - state.smashes_used} letter${state.max_hammer_smash - state.smashes_used === 1 ? "" : "s"}, then smash.`;
   ui.board.innerHTML = previewBoard.map((letter, index) => {
     const isPreview = state.board[index] === null && letter !== null;
     const points = letter ? (state.board_points[index] ?? state.letter_points[letter]) : "";
@@ -195,17 +196,17 @@ function render(stateText) {
   }).join("");
   ui.hand.innerHTML = state.hand.map((letter, index) => `<button class="hand-card ${selectedHand.has(index) ? "selected" : ""}" data-hand-index="${index}" type="button" ${state.game_over || state.phase !== "build" ? "disabled" : ""}><span class="card-letter">${letter.toUpperCase()}</span><span class="card-points">${state.hand_points[index]}</span></button>`).join("");
   ui.score.textContent = state.score;
-  ui.moveCount.textContent = `${state.moves} ${state.moves === 1 ? "word" : "words"}`;
+  ui.moveCount.textContent = `${state.moves} ${state.moves === 1 ? "word" : "words"} built`;
   ui.dealButton.classList.toggle("subdued", state.history.length > 0 && !state.game_over);
   ui.dealButton.classList.toggle("prominent", state.game_over);
   ui.playButton.textContent = `Build word (${selectedHand.size}${requiredCards ? `/${requiredCards}+` : ""})`;
-  ui.smashButton.textContent = `Hammer smash (${state.smashes_used}/${state.max_hammer_smash} smashed)`;
+  ui.smashButton.textContent = `Smash letters (${state.smashes_used}/${state.max_hammer_smash})`;
   ui.smashButton.disabled = !state || state.phase !== "smash" || state.game_over || state.smashes_used >= state.max_hammer_smash;
   ui.nextRoundButton.disabled = !state || state.phase !== "smash" || state.game_over;
   ui.playButton.disabled = !state || state.phase !== "build" || selectedHand.size < requiredCards || selectedHand.size > emptyCount || state.game_over;
   ui.history.innerHTML = state.history.length
     ? state.history.map((word, index) => `<span class="history-word">${word.toUpperCase()} <b>+${state.history_points[index]}</b></span>`).join("")
-    : `<span class="empty-state">Built words will appear here.</span>`;
+    : `<span class="empty-state">No words built yet.</span>`;
   ui.feedback.textContent = state.message;
   ui.feedback.className = `feedback ${state.kind}`.trim();
   if (state.game_over && !previousState?.game_over) playSound("game-over");
@@ -220,14 +221,14 @@ function setLoading(message) {
 }
 
 function setReady(count) {
-  ui.status.textContent = `${count.toLocaleString()} words ready`;
+  ui.status.textContent = `${count.toLocaleString()} dictionary words ready`;
   ui.status.className = "status-dot ready";
   setControls(true);
   ui.feedback.textContent = "Deal a board to start playing.";
 }
 
 function setError(message) {
-  ui.status.textContent = "Dictionary error";
+  ui.status.textContent = "Dictionary unavailable";
   ui.status.className = "status-dot error";
   ui.feedback.textContent = message;
   ui.feedback.className = "feedback error";
@@ -293,6 +294,7 @@ ui.shopHandSelection.addEventListener("click", event => {
 ui.shopBuyButtons.forEach(button => {
   button.addEventListener("click", () => purchaseShopItem(button.dataset.shopItem));
 });
+ui.feedback.addEventListener("click", () => ui.feedback.classList.add("dismissed"));
 ui.dealButton.addEventListener("click", () => {
   selectedHand.clear();
   selectedBoard.clear();
@@ -301,6 +303,9 @@ ui.dealButton.addEventListener("click", () => {
   moveDestinationIndex = null;
   playSound("deal");
   window.pyStartRound();
+  if (window.matchMedia("(max-width: 700px)").matches) {
+    requestAnimationFrame(() => ui.playPanel.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
 });
 ui.playButton.addEventListener("click", () => {
   const indexes = JSON.stringify([...selectedHand]);

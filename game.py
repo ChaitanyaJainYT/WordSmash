@@ -41,6 +41,7 @@ SHOP_ITEMS = {
     "extra_hand_space": {"label": "Extra hand space", "description": "Increase the hand limit by 4.", "price": 10},
     "replace_hand_tiles": {"label": "Replace hand tiles", "description": "Replace up to 4 selected hand tiles in the same positions.", "price": 10},
     "move_board_tile": {"label": "Move board tile", "description": "Move one board slot to another position.", "price": 10},
+    "hint": {"label": "Hint", "description": "Show one word you can make from the current board and hand.", "price": 10},
 }
 
 SCORES = {
@@ -78,6 +79,7 @@ class WordSmashGame:
         self.game_over_message = ""
         self.cards_played_this_turn = 0
         self.smashes_used_this_turn = 0
+        self.last_hint = None
         self.hand_limit = MAX_HAND_SIZE
         self.max_hammer_smash = MAX_HAMMER_SMASH
         self.shop_purchases = {item_id: 0 for item_id in SHOP_ITEMS}
@@ -95,6 +97,7 @@ class WordSmashGame:
         self.phase = "build"
         self.game_over = False
         self.game_over_message = ""
+        self.last_hint = None
         for _ in range(MAX_OPENING_DEALS):
             self.hand = []
             self.deal_hand(STARTING_HAND_SIZE)
@@ -207,6 +210,18 @@ class WordSmashGame:
             for word in self.words
         )
 
+    def find_hint(self):
+        if self.phase != "build":
+            return None
+        candidates = (
+            word
+            for word in self.words
+            if MIN_WORD_LENGTH <= len(word) <= len(self.board)
+            and word not in self.history
+            and self.can_build_word(word)
+        )
+        return max(candidates, key=lambda word: (len(word), word), default=None)
+
     def check_moves(self):
         if not self.empty_slots() and len(self.board) >= MAX_BOARD_SIZE:
             self.game_over = True
@@ -248,6 +263,13 @@ class WordSmashGame:
         if self.score < price:
             raise ValueError(f"You need {price} more points to buy {SHOP_ITEMS[item_id]['label'].lower()}.")
 
+        hint_word = None
+        if item_id == "hint":
+            hint_word = self.find_hint()
+            if hint_word is None:
+                raise ValueError("No word can be built from the current board and hand.")
+            self.last_hint = hint_word
+
         if item_id == "replace_hand_tiles":
             selected = sorted(set(hand_indexes or []))
             if not 1 <= len(selected) <= 4:
@@ -274,6 +296,7 @@ class WordSmashGame:
         elif item_id == "move_board_tile":
             moved_tile = self.board.pop(source_index)
             self.board.insert(destination_index, moved_tile)
+        return hint_word
 
     def state(self, message="", kind=""):
         return json.dumps({
@@ -295,6 +318,7 @@ class WordSmashGame:
             "board_max_size": MAX_BOARD_SIZE,
             "max_hammer_smash": self.max_hammer_smash,
             "smashes_used": self.smashes_used_this_turn,
+            "hint_word": self.last_hint,
             "shop": self.shop_state(),
             "message": message,
             "kind": kind,
@@ -356,13 +380,14 @@ def purchase_shop_item(value="", *_args):
         return render(MESSAGES["deal_to_shop"], "error")
     try:
         purchase = json.loads(str(value))
-        game.purchase_shop_item(
+        hint_word = game.purchase_shop_item(
             purchase.get("item_id", ""),
             purchase.get("hand_indexes"),
             purchase.get("source_index"),
             purchase.get("destination_index"),
         )
-        render("Power-up purchased.", "success")
+        message = f"Hint: try {hint_word.upper()}." if hint_word else "Power-up purchased."
+        render(message, "success")
     except (ValueError, TypeError, json.JSONDecodeError) as error:
         render(str(error), "error")
 

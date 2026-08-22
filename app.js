@@ -42,6 +42,7 @@ const ui = {
   smashButton: document.querySelector("#smash-button"),
   nextRoundButton: document.querySelector("#next-round-button"),
   shopHandSelection: document.querySelector("#shop-hand-selection"),
+  hintResult: document.querySelector("#hint-result"),
   moveSelection: document.querySelector("#move-selection"),
   moveLeft: document.querySelector("#move-left"),
   moveRight: document.querySelector("#move-right"),
@@ -141,7 +142,9 @@ function renderShop(state) {
   shop.items.forEach(item => {
     const button = document.querySelector(`[data-shop-item="${item.id}"]`);
     button.querySelector(`[data-shop-price="${item.id}"]`).textContent = item.price;
-    const ready = item.id === "replace_hand_tiles"
+    const ready = item.id === "hint"
+      ? state.phase === "build"
+      : item.id === "replace_hand_tiles"
       ? selectedShopHand.size >= 1 && selectedShopHand.size <= 4
       : item.id === "move_board_tile"
         ? moveSourceIndex !== null && moveDestinationIndex !== null && moveSourceIndex !== moveDestinationIndex
@@ -199,10 +202,10 @@ function render(stateText) {
   });
   document.querySelector("#board-size").textContent = state.board.length;
   document.querySelector("#phase-note").textContent = state.game_over
-    ? "Round over. Deal a new board to play again."
+    ? "Game over. Deal a new board to play again."
     : state.phase === "build"
-      ? `Select at least ${requiredCards} card${requiredCards === 1 ? "" : "s"} to fill the word. Extra cards fill trailing spaces.`
-      : `Word scored. Select up to ${state.max_hammer_smash - state.smashes_used} letter${state.max_hammer_smash - state.smashes_used === 1 ? "" : "s"}, then smash.`;
+      ? `Select at least ${requiredCards} card${requiredCards === 1 ? "" : "s"} to fill the word.`
+      : `Select up to ${state.max_hammer_smash - state.smashes_used} letter${state.max_hammer_smash - state.smashes_used === 1 ? "" : "s"}, then smash.`;
   ui.board.innerHTML = previewBoard.map((letter, index) => {
     const isPreview = state.board[index] === null && letter !== null;
     const wasFilled = previousBoard[index] !== null && previousBoard[index] !== undefined;
@@ -213,6 +216,7 @@ function render(stateText) {
   }).join("");
   ui.hand.innerHTML = state.hand.map((letter, index) => `<button class="hand-card ${selectedHand.has(index) ? "selected" : ""} ${newRoundStarted ? "deal-in" : ""}" data-hand-index="${index}" type="button" ${state.game_over || state.phase !== "build" ? "disabled" : ""}><span class="card-letter">${letter.toUpperCase()}</span><span class="card-points">${state.hand_points[index]}</span></button>`).join("");
   ui.score.textContent = state.score;
+  ui.hintResult.textContent = state.hint_word ? `Try: ${state.hint_word.toUpperCase()}` : "";
   ui.moveCount.textContent = `${state.moves} ${state.moves === 1 ? "word" : "words"} built`;
   ui.dealButton.classList.toggle("subdued", state.history.length > 0 && !state.game_over);
   ui.dealButton.classList.toggle("prominent", state.game_over);

@@ -56,6 +56,7 @@ let moveSourceIndex = null;
 let moveDestinationIndex = null;
 let currentState = null;
 let previousState = null;
+let animateNextHandDeal = false;
 let audioContext = null;
 
 function getAudioContext() {
@@ -173,7 +174,8 @@ function render(stateText) {
   const boardWasSmashed = previousBoard.some((letter, index) => letter && state.board[index] === null);
   const wordWasBuilt = state.history.length > (previousState?.history.length ?? 0);
   const scoreChanged = state.score !== (previousState?.score ?? state.score);
-  const newRoundStarted = !state.game_over && (!previousState || previousState.phase === "smash" && state.phase === "build");
+  const newRoundStarted = !state.game_over && (animateNextHandDeal || !previousState || previousState.phase === "smash" && state.phase === "build");
+  animateNextHandDeal = false;
   renderShop(state);
   document.querySelector("#hand-limit").textContent = state.hand_limit;
   document.querySelector("#hand-limit-hint").textContent = state.hand_limit;
@@ -324,6 +326,7 @@ ui.dealButton.addEventListener("click", () => {
   moveSourceIndex = null;
   moveDestinationIndex = null;
   playSound("deal");
+  animateNextHandDeal = true;
   window.pyStartRound();
   if (window.matchMedia("(max-width: 700px)").matches) {
     requestAnimationFrame(() => ui.playPanel.scrollIntoView({ behavior: "smooth", block: "start" }));

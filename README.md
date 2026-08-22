@@ -33,7 +33,7 @@ Letter draws use a fixed 98-tile distribution based on standard Scrabble letter 
 3. Select cards from your hand. They are placed into the board's empty spaces from left to right.
 4. Select exactly enough cards to fill every empty space. The completed board must be a valid dictionary word of at least 4 letters.
 5. The complete word is scored using standard Scrabble tile values before smashing.
-6. Select one or two occupied board letters and click **Hammer smash**. Each selected card counts as one smash, up to the hammer limit.
+6. Select one or multiple occupied board letters and click **Hammer smash**. Each selected card counts as one smash, up to the hammer limit.
 7. Smashed positions become empty. The surviving board letters remain in place.
 8. Click **Next Round** to refill by `cards played this turn + (2 - letters smashed)`, without exceeding 16 cards, change back to build phase, and check for valid moves. Until then, the board remains in smash phase.
 

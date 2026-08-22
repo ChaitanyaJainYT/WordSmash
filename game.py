@@ -119,7 +119,7 @@ class WordSmashGame:
         if self.game_over:
             raise ValueError(MESSAGES["round_over"])
         if self.phase != "build":
-            raise ValueError("Smash up to two letters before building again.")
+            raise ValueError("Smash letters before building again.")
         if len(set(selected_indexes)) != len(selected_indexes):
             raise ValueError("Select each hand card only once.")
         if any(index < 0 or index >= len(self.hand) for index in selected_indexes):

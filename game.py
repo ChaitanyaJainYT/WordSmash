@@ -11,9 +11,9 @@ from pyodide.ffi import create_proxy
 WORD_LIST_FILE = "Collins Scrabble Words (2019).txt"
 LETTER_FREQUENCY_FILE = "letter_frequency.json"
 # Keep False to use letter_frequency.json; set True to trial inverse Scrabble-score weighting.
-USE_SCORE_FREQUENCY = False
+USE_SCORE_FREQUENCY = True
 STARTING_HAND_SIZE = 8
-MAX_HAND_SIZE = 16
+MAX_HAND_SIZE = 8
 MAX_HAMMER_SMASH = 2
 MIN_WORD_LENGTH = 4
 STARTING_BOARD_SIZE = 4
@@ -31,12 +31,12 @@ MESSAGES = {
     "next_round": "Select hand cards to build the next word.",
 }
 
-SHOP_PRICE_STEP = 15
+SHOP_PRICE_STEP = 10
 SHOP_ITEMS = {
-    "extra_hammer": {"label": "Extra hammer", "description": "Increase hammer capacity by 1.", "price": 15},
-    "extra_hand_space": {"label": "Extra hand space", "description": "Increase the hand limit by 2.", "price": 15},
-    "replace_hand_tiles": {"label": "Replace hand tiles", "description": "Replace two selected hand tiles in the same positions.", "price": 15},
-    "move_board_tile": {"label": "Move board tile", "description": "Move one board slot to another position.", "price": 15},
+    "extra_hammer": {"label": "Extra hammer", "description": "Increase hammer capacity by 1.", "price": 10},
+    "extra_hand_space": {"label": "Extra hand space", "description": "Increase the hand limit by 4.", "price": 10},
+    "replace_hand_tiles": {"label": "Replace hand tiles", "description": "Replace up to 4 selected hand tiles in the same positions.", "price": 10},
+    "move_board_tile": {"label": "Move board tile", "description": "Move one board slot to another position.", "price": 10},
 }
 
 SCORES = {
@@ -247,8 +247,8 @@ class WordSmashGame:
 
         if item_id == "replace_hand_tiles":
             selected = sorted(set(hand_indexes or []))
-            if len(selected) != 2:
-                raise ValueError("Select exactly two hand tiles to replace.")
+            if not 1 <= len(selected) <= 4:
+                raise ValueError("Select 1 to 4 hand tiles to replace.")
             if any(index < 0 or index >= len(self.hand) for index in selected):
                 raise ValueError("That hand tile is not available.")
         elif item_id == "move_board_tile":
@@ -262,7 +262,7 @@ class WordSmashGame:
         if item_id == "extra_hammer":
             self.max_hammer_smash += 1
         elif item_id == "extra_hand_space":
-            self.hand_limit += 2
+            self.hand_limit += 4
         elif item_id == "replace_hand_tiles":
             letters = list(LETTER_WEIGHTS)
             weights = [11 - SCORES[letter] for letter in letters] if USE_SCORE_FREQUENCY else [LETTER_WEIGHTS[letter] for letter in letters]

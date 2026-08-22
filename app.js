@@ -141,7 +141,7 @@ function renderShop(state) {
     const button = document.querySelector(`[data-shop-item="${item.id}"]`);
     button.querySelector(`[data-shop-price="${item.id}"]`).textContent = item.price;
     const ready = item.id === "replace_hand_tiles"
-      ? selectedShopHand.size === 2
+      ? selectedShopHand.size >= 1 && selectedShopHand.size <= 4
       : item.id === "move_board_tile"
         ? moveSourceIndex !== null && moveDestinationIndex !== null && moveSourceIndex !== moveDestinationIndex
       : true;
@@ -173,7 +173,7 @@ function render(stateText) {
   const boardWasSmashed = previousBoard.some((letter, index) => letter && state.board[index] === null);
   const wordWasBuilt = state.history.length > (previousState?.history.length ?? 0);
   const scoreChanged = state.score !== (previousState?.score ?? state.score);
-  const newRoundStarted = !previousState || previousState.phase === "smash" && state.phase === "build";
+  const newRoundStarted = !state.game_over && (!previousState || previousState.phase === "smash" && state.phase === "build");
   renderShop(state);
   document.querySelector("#hand-limit").textContent = state.hand_limit;
   document.querySelector("#hand-limit-hint").textContent = state.hand_limit;
@@ -310,7 +310,7 @@ ui.shopHandSelection.addEventListener("click", event => {
   if (!card) return;
   const index = Number(card.dataset.shopHandIndex);
   if (selectedShopHand.has(index)) selectedShopHand.delete(index);
-  else if (selectedShopHand.size < 2) selectedShopHand.add(index);
+  else if (selectedShopHand.size < 4) selectedShopHand.add(index);
   render(JSON.stringify({ ...currentState, message: "", kind: "" }));
 });
 ui.shopBuyButtons.forEach(button => {

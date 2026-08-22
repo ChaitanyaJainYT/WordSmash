@@ -16,14 +16,14 @@
   <main>
     <header>
       <div>
-        <p class="eyebrow">A board word game</p>
+        <p class="eyebrow">A word-building board game</p>
         <h1>Word<br>Smash</h1>
       </div>
       <div class="header-tools">
-        <p class="tagline">Build the word. Score it. Hammer out two letters.</p>
+        <p class="tagline">Build it. Score it. Smash letters.</p>
         <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">
           <span class="theme-icon" aria-hidden="true">☾</span>
-          <span class="theme-label">Dark theme</span>
+          <span class="theme-label">Use dark theme</span>
         </button>
       </div>
     </header>
@@ -31,60 +31,70 @@
     <div class="layout">
       <section class="panel play-panel" aria-labelledby="play-heading">
         <div class="panel-label">
-          <span id="play-heading">Board <span id="board-size">4</span>/<span id="board-size-limit">15</span></span>
+          <span id="play-heading">Board size <span id="board-size">4</span> of <span id="board-size-limit">15</span></span>
           <span id="dictionary-status" class="status-dot">Loading words...</span>
         </div>
         <div id="board" class="board" aria-label="Word board"></div>
-        <div class="phase-note" id="phase-note">Select hand cards to fill every empty board space.</div>
+        <div class="phase-note" id="phase-note">Build a word with at least 4 letters.</div>
         <div class="score-row">
-          <div class="score"><small>Total points</small><span id="score">0</span></div>
-          <span id="move-count" class="move-count">0 words</span>
+          <div class="score"><small>Score</small><span id="score">0</span></div>
+          <span id="move-count" class="move-count">0 words built</span>
         </div>
-        <div id="hand" class="hand" aria-label="Letter cards"></div>
+        <div id="hand" class="hand" aria-label="Hand of letter cards"></div>
         <div class="action-row">
           <button id="play-button" type="button" disabled>Build word</button>
           <button id="smash-button" class="hammer-button" type="button" disabled>Hammer smash</button>
           <button id="next-round-button" class="next-round-button" type="button" disabled>Next Round</button>
         </div>
-        <p id="feedback" class="feedback" role="status">Load the dictionary to play.</p>
+        <p id="feedback" class="feedback" role="status" aria-live="polite" tabindex="0" aria-label="Dismiss message">Load the dictionary to play.</p>
       </section>
 
       <aside class="panel side-panel" aria-labelledby="rules-heading">
-        <div class="panel-label"><span>Round controls</span><span>MAX <span id="hand-limit">16</span></span></div>
-        <h2 id="rules-heading">Choose your letters</h2>
-        <p>Play cards from left to right into the empty board spaces. Once the word scores, select and smash board letters one at a time, then start the next round.</p>
-        <button id="deal-button" class="deal-button" type="button" disabled>Deal new board</button>
-        <div class="history-heading">Built words</div>
-        <div id="history" class="history" aria-label="Built words"><span class="empty-state">Built words will appear here.</span></div>
+        <div class="panel-label"><span>Round</span><span>Hand limit: <span id="hand-limit">16</span></span></div>
+        <details class="how-to-play" open>
+          <summary id="rules-heading">How to play</summary>
+          <ul class="how-to-play-list">
+            <li><strong>Deal:</strong> Get letter cards and an empty board.</li>
+            <li><strong>Build:</strong> Pick cards to make a word. Words must have at least 4 letters.</li>
+            <li><strong>Score:</strong> Build a real word from the dictionary to earn points.</li>
+            <li><strong>Smash:</strong> Pick letters on the board and smash them.</li>
+            <li><strong>Next round:</strong> Click Next round to get new cards.</li>
+            <li><strong>Shop:</strong> Spend your points on power-ups at any time during the round.</li>
+            <li><strong>Game over:</strong> The game ends when no valid word can be made.</li>
+          </ul>
+        </details>
+        <button id="deal-button" class="deal-button" type="button" disabled>Deal board</button>
+        <div class="history-heading">Words built</div>
+        <div id="history" class="history" aria-label="Words built"><span class="empty-state">No words built yet.</span></div>
         <p class="hint">HAND / STARTS AT <span id="starting-hand-size">8</span>, MAX <span id="hand-limit-hint">16</span><br>BOARD / STARTS AT <span id="board-start-size">4</span>, GROWS TO <span id="board-size-limit-hint">15</span><br>SMASH / UP TO <span id="smash-limit">2</span> LETTERS</p>
       </aside>
     </div>
 
     <section class="panel shop-panel" aria-labelledby="shop-heading">
-      <div class="panel-label"><span id="shop-heading">Powerup shop</span><span>Spend points</span></div>
+      <div class="panel-label"><span id="shop-heading">Power-up shop</span><span>Spend score</span></div>
       <div class="shop-items">
         <article class="shop-item">
           <div>
             <h2>Extra hammer</h2>
-            <p>Increase hammer capacity by one.</p>
+            <p>Increase smash limit by 1.</p>
           </div>
-          <button class="shop-buy-button" data-shop-item="extra_hammer" type="button" disabled>Buy for <span data-shop-price="extra_hammer">15</span></button>
+          <button class="shop-buy-button" data-shop-item="extra_hammer" type="button" disabled>Buy for <span data-shop-price="extra_hammer">10</span> pts</button>
         </article>
         <article class="shop-item">
           <div>
             <h2>Extra hand space</h2>
-            <p>Increase the hand limit by two.</p>
+            <p>Increase hand limit by 4.</p>
           </div>
-          <button class="shop-buy-button" data-shop-item="extra_hand_space" type="button" disabled>Buy for <span data-shop-price="extra_hand_space">30</span></button>
+          <button class="shop-buy-button" data-shop-item="extra_hand_space" type="button" disabled>Buy for <span data-shop-price="extra_hand_space">10</span> pts</button>
         </article>
         <article class="shop-item shop-item-wide">
           <div>
             <h2>Replace hand tiles</h2>
-            <p>Replace exactly two hand tiles with new letters in the same positions.</p>
+            <p>Replace up to 4 selected hand tiles with new letters in the same positions.</p>
           </div>
           <div class="shop-action">
             <div id="shop-hand-selection" class="shop-selection" aria-label="Hand tiles to replace"></div>
-            <button class="shop-buy-button" data-shop-item="replace_hand_tiles" type="button" disabled>Replace for <span data-shop-price="replace_hand_tiles">15</span></button>
+            <button class="shop-buy-button" data-shop-item="replace_hand_tiles" type="button" disabled>Replace for <span data-shop-price="replace_hand_tiles">10</span> pts</button>
           </div>
         </article>
         <article class="shop-item shop-item-wide">
@@ -93,13 +103,23 @@
             <p>Select a board tile, shift it with the arrows, then confirm the purchase.</p>
           </div>
           <div class="shop-action move-controls">
-            <div id="move-selection" class="move-selection" role="status" aria-label="Board tile move preview"></div>
-            <div class="move-arrow-controls" aria-label="Move selected board tile">
-              <button id="move-left" class="move-arrow-button" type="button" aria-label="Move selected tile left" disabled>&lsaquo;</button>
-              <button id="move-right" class="move-arrow-button" type="button" aria-label="Move selected tile right" disabled>&rsaquo;</button>
-              <button id="move-reset" class="move-arrow-button reset-button" type="button" aria-label="Choose a different tile" disabled>&olarr;</button>
+            <div id="move-selection" class="move-selection" role="status" aria-label="Preview board tile move"></div>
+            <div class="move-arrow-controls" aria-label="Move selected tile">
+              <button id="move-left" class="move-arrow-button" type="button" aria-label="Move tile left" disabled>&lsaquo;</button>
+              <button id="move-right" class="move-arrow-button" type="button" aria-label="Move tile right" disabled>&rsaquo;</button>
+              <button id="move-reset" class="move-arrow-button reset-button" type="button" aria-label="Choose another tile" disabled>&olarr;</button>
             </div>
-            <button class="shop-buy-button" data-shop-item="move_board_tile" type="button" disabled>Move for <span data-shop-price="move_board_tile">30</span></button>
+            <button class="shop-buy-button" data-shop-item="move_board_tile" type="button" disabled>Move for <span data-shop-price="move_board_tile">10</span> pts</button>
+          </div>
+        </article>
+        <article class="shop-item shop-item-wide hint-shop-item">
+          <div>
+            <h2>Hint</h2>
+            <p>Show one word you can make from the current board and hand.</p>
+          </div>
+          <div class="shop-action hint-action">
+            <span id="hint-result" class="hint-result" aria-live="polite"></span>
+            <button class="shop-buy-button" data-shop-item="hint" type="button" disabled>Hint for <span data-shop-price="hint">10</span> pts</button>
           </div>
         </article>
       </div>

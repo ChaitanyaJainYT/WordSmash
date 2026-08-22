@@ -24,29 +24,28 @@ WORD_LIST_FILE = "Collins Scrabble Words (2019).txt"
 
 Use another sibling `.txt` file with one word per line if desired.
 
-Letter draws are weighted using `letter_frequency.json`, which is generated from the supplied dictionary. Change that JSON file to tune the letter probabilities.
-
-For a temporary inverse-score trial, set `USE_SCORE_FREQUENCY = True` in `game.py`. This keeps the JSON loader intact but gives score-1 letters weight 10 and score-10 letters weight 1. Leave it `False` to use the current JSON frequency logic.
+Letter draws use a fixed 98-tile distribution based on standard Scrabble letter counts. Common letters appear more often, while high-value letters such as J, X, Q, and Z appear less often but remain possible.
 
 ## Gameplay
 
 1. The board starts with 4 spaces and grows by one space only when the built word uses the board's full current length, up to 15 spaces.
-2. You start with 8 letter cards. Your hand can hold up to 16 cards.
+2. You start with 8 letter cards. Your hand can hold up to 8 cards before upgrades.
 3. Select cards from your hand. They are placed into the board's empty spaces from left to right.
 4. Select exactly enough cards to fill every empty space. The completed board must be a valid dictionary word of at least 4 letters.
 5. The complete word is scored using standard Scrabble tile values before smashing.
-6. Select one or two occupied board letters and click **Hammer smash**. Each selected card counts as one smash, up to the hammer limit.
+6. Select one or multiple occupied board letters and click **Hammer smash**. Each selected card counts as one smash, up to the hammer limit.
 7. Smashed positions become empty. The surviving board letters remain in place.
 8. Click **Next Round** to refill by `cards played this turn + (2 - letters smashed)`, without exceeding 16 cards, change back to build phase, and check for valid moves. Until then, the board remains in smash phase.
 
 ## Powerup shop
 
-Spend scored points on powerups at any time during an active round. Each item has its own price, which increases by 15 after every purchase and resets when a new board is dealt.
+Spend scored points on power-ups at any time during an active round. Each item costs 10 points at first, increases by 10 after every purchase, and resets when a new board is dealt.
 
-- **Extra hammer** costs 15 initially and increases the hammer capacity by 1 immediately and for future turns.
-- **Extra hand space** costs 15 initially and increases the hand limit by 2 for the current run.
-- **Replace hand tiles** costs 15 initially. Select exactly two hand tiles to replace with random letters in the same positions.
-- **Move board tile** costs 15 initially. Select any position, including an empty one, in the shop's board copy, shift it left or right with the arrow buttons, and pay to apply the move; intervening positions slide.
+- **Extra hammer** increases the hammer capacity by 1 immediately and for future turns.
+- **Extra hand space** increases the hand limit by 4 for the current run.
+- **Replace hand tiles** lets you select 1 to 4 hand tiles and replace them with random letters in the same positions.
+- **Move board tile** lets you select any position, including an empty one, in the shop's board copy, shift it left or right with the arrow buttons, and pay to apply the move; intervening positions slide.
+- **Hint** shows one word that can be built from the current board and hand. It follows the board's letter positions and maximum length.
 
 Shop purchases subtract from the existing score. The shop is unavailable after game over. Dealing a new board resets the score, upgrades, purchase counts, and item prices.
 

@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { getFirestore, collection, query, orderBy, limit, startAfter, getDocs, doc, getDoc, setDoc, where } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
-import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app-check.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app-check.js";
 
 const themeStorageKey = "wordSmash.theme";
 const themeToggle = document.querySelector("#theme-toggle");
@@ -521,11 +521,6 @@ async function submitScoreSafe(name, score, wordCount) {
       console.error("Anonymous auth failed", e);
       return { ok: false, error: "Anonymous sign-in failed. Check that the Anonymous auth method is enabled and the API key is valid." };
     }
-  }
-  try {
-    await getToken(appCheck);
-  } catch (e) {
-    console.error("App Check token failed", e);
   }
   const cleanName = name.slice(0, 20);
   const orderValue = score * 1000000000 + (1000000000 - wordCount);

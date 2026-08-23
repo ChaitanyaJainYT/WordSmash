@@ -188,9 +188,10 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .leaderboard-table .ld-words { white-space: nowrap; }
 .leaderboard-table th { position: sticky; top: 0; z-index: 2; padding: 10px 12px; border-bottom: 1px solid var(--line); color: var(--muted); background: var(--panel); font: 500 11px/1 "DM Mono", monospace; letter-spacing: .08em; text-align: left; text-transform: uppercase; }
 .leaderboard-table td { padding: 9px 12px; font-size: 14px; }
-.leaderboard-table tr.leaderboard-player-row { background: var(--board-preview); box-shadow: inset 0 0 0 1px var(--teal); position: sticky; top: 34px; z-index: 1; }
-.leaderboard-table tr.leaderboard-player-row td { font-weight: bold; }
-.leaderboard-table tr.leaderboard-chip-row { background: var(--board-preview); box-shadow: inset 0 0 0 1px var(--teal); position: sticky; bottom: 0; z-index: 3; font-weight: bold; }
+.leaderboard-table tr.leaderboard-highlight-row { background: var(--board-preview); box-shadow: inset 0 0 0 1px var(--teal); font-weight: bold; }
+.leaderboard-table__indicator { background: var(--board-preview); box-shadow: inset 0 0 0 1px var(--teal); font-weight: bold; position: sticky; z-index: 1; cursor: pointer; }
+.leaderboard-table__indicator.at-top { top: 34px; }
+.leaderboard-table__indicator.at-bottom { bottom: 0; }
 .leaderboard-table .ld-rank { color: var(--muted); font: 500 13px "DM Mono", monospace; }
 .leaderboard-table .ld-name { color: var(--ink); font-weight: 500; }
 .leaderboard-table .ld-score { color: var(--teal); font: 600 14px "DM Mono", monospace; }

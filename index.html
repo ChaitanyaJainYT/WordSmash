@@ -3,14 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <title>WordSmash</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="https://pyscript.net/releases/2024.6.1/core.css">
+  <script src="https://www.google.com/recaptcha/enterprise.js?render=6Le54ZQtAAAAAAD0THUveULsrVT1qbDPY_EzbXPy" async defer></script>
   <script type="module" src="https://pyscript.net/releases/2024.6.1/core.js"></script>
-  <script src="app.js" defer></script>
+  <script type="module" src="app.js" defer></script>
 </head>
 <body>
   <main>
@@ -99,8 +102,8 @@
         </article>
         <article class="shop-item shop-item-wide">
           <div>
-            <h2>Move board tile</h2>
-            <p>Select a board tile, shift it with the arrows, then confirm the purchase.</p>
+            <h2>Move board tiles</h2>
+            <p>Select tile, move using arrows, select another tile to move that. Buy to confirm all moves.</p>
           </div>
           <div class="shop-action move-controls">
             <div id="move-selection" class="move-selection" role="status" aria-label="Preview board tile move"></div>
@@ -124,7 +127,41 @@
         </article>
       </div>
     </section>
+
+    <section class="panel leaderboard-panel" aria-labelledby="leaderboard-heading">
+      <div class="panel-label"><span id="leaderboard-heading">Leaderboard</span><span id="leaderboard-status" class="status-dot">Loading...</span></div>
+      <div class="leaderboard-scroll" id="leaderboard-scroll">
+        <table class="leaderboard-table">
+          <thead>
+            <tr>
+              <th class="ld-col-rank" scope="col">Rank</th>
+              <th scope="col">Player</th>
+              <th class="ld-col-score" scope="col">Score</th>
+              <th class="ld-col-words" scope="col">Words</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboard-body"></tbody>
+        </table>
+        <p id="leaderboard-end" class="leaderboard-end" hidden>Scroll for more</p>
+      </div>
+    </section>
   </main>
+
+  <dialog id="game-over-modal" class="modal" aria-labelledby="modal-title">
+    <div class="modal-card">
+      <h2 id="modal-title">Game Over!</h2>
+      <p class="modal-summary">No valid word can be built from your hand and board.</p>
+      <p class="modal-summary">Final score: <strong id="modal-score">0</strong></p>
+      <p class="modal-summary">Words made: <strong id="modal-words">0</strong></p>
+      <label for="player-name">Enter your name for the leaderboard</label>
+      <input type="text" id="player-name" maxlength="20" placeholder="Your name" autofocus>
+      <p id="modal-error" class="modal-error" hidden></p>
+      <div class="action-row">
+        <button type="button" id="modal-skip-btn">Skip</button>
+        <button type="button" id="modal-submit-btn" class="next-round-button">Submit Score</button>
+      </div>
+    </div>
+  </dialog>
 
   <script type="py" src="game.py"></script>
 </body>

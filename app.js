@@ -1,5 +1,30 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+import { getFirestore, collection, query, orderBy, limit, startAfter, getDocs, doc, getDoc, setDoc, where } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app-check.js";
+
 const themeStorageKey = "wordSmash.theme";
 const themeToggle = document.querySelector("#theme-toggle");
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCiuC9xyvBrP1scOnDQTlXBesceaeUWstU",
+  authDomain: "wordsmash-cda66.firebaseapp.com",
+  projectId: "wordsmash-cda66",
+  storageBucket: "wordsmash-cda66.firebasestorage.app",
+  messagingSenderId: "296751243456",
+  appId: "1:296751243456:web:b1ef91ac378fdb19518d25"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const appCheck = initializeAppCheck(firebaseApp, {
+  provider: new ReCaptchaEnterpriseProvider("6Le54ZQtAAAAAAD0THUveULsrVT1qbDPY_EzbXPy"),
+  isTokenAutoRefreshEnabled: true,
+});
+const auth = getAuth(firebaseApp);
+const db = getFirestore(firebaseApp);
+
+let currentUser = null;
+signInAnonymously(auth).catch(console.error);
 
 function applyTheme(theme) {
   const isDark = theme === "dark";
@@ -48,11 +73,23 @@ const ui = {
   moveRight: document.querySelector("#move-right"),
   moveReset: document.querySelector("#move-reset"),
   shopBuyButtons: [...document.querySelectorAll("[data-shop-item]")],
+  leaderboardBody: document.querySelector("#leaderboard-body"),
+  leaderboardStatus: document.querySelector("#leaderboard-status"),
+  leaderboardScroll: document.querySelector("#leaderboard-scroll"),
+  leaderboardEnd: document.querySelector("#leaderboard-end"),
+  gameOverModal: document.querySelector("#game-over-modal"),
+  modalScore: document.querySelector("#modal-score"),
+  modalWords: document.querySelector("#modal-words"),
+  playerNameInput: document.querySelector("#player-name"),
+  modalSkipBtn: document.querySelector("#modal-skip-btn"),
+  modalSubmitBtn: document.querySelector("#modal-submit-btn"),
+  modalError: document.querySelector("#modal-error"),
 };
 
 let selectedHand = new Set();
 let selectedBoard = new Set();
 let selectedShopHand = new Set();
+let movePermutation = null;
 let moveSourceIndex = null;
 let moveDestinationIndex = null;
 let currentState = null;
@@ -106,12 +143,9 @@ function playAnimation(element, className) {
 }
 
 function renderMoveSelection(state, moveEnabled) {
-  const board = state.board.slice();
+  if (!movePermutation) movePermutation = state.board.map((_, i) => i);
+  const board = movePermutation.map(i => state.board[i]);
   const selected = moveSourceIndex !== null;
-  if (selected && moveDestinationIndex !== null) {
-    const movedTile = board.splice(moveSourceIndex, 1)[0];
-    board.splice(moveDestinationIndex, 0, movedTile);
-  }
   ui.moveSelection.innerHTML = `<div class="move-board-copy" aria-label="Select a board tile to move">${board.map((letter, index) => `<button class="move-copy-tile ${letter ? "filled" : "empty"} ${selected && index === moveDestinationIndex ? "selected" : ""}" data-move-copy-index="${index}" type="button" aria-label="${letter ? `Letter ${letter.toUpperCase()}, worth ${state.letter_points[letter]} points` : "Empty board space"}" ${moveEnabled ? "" : "disabled"}>${letter ? letter.toUpperCase() : ""}</button>`).join("")}</div>`;
   ui.moveLeft.disabled = !moveEnabled || !selected || moveDestinationIndex <= 0;
   ui.moveRight.disabled = !moveEnabled || !selected || moveDestinationIndex >= state.board.length - 1;
@@ -136,6 +170,7 @@ function renderShop(state) {
   if (!moveEnabled) {
     moveSourceIndex = null;
     moveDestinationIndex = null;
+    movePermutation = null;
   }
   renderMoveSelection(state, moveEnabled);
 
@@ -147,7 +182,7 @@ function renderShop(state) {
       : item.id === "replace_hand_tiles"
       ? selectedShopHand.size >= 1 && selectedShopHand.size <= 4
       : item.id === "move_board_tile"
-        ? moveSourceIndex !== null && moveDestinationIndex !== null && moveSourceIndex !== moveDestinationIndex
+        ? movePermutation !== null && movePermutation.some((orig, i) => orig !== i)
       : true;
     button.disabled = !active || !item.affordable || !ready;
   });
@@ -158,14 +193,15 @@ function purchaseShopItem(itemId) {
   const purchase = { item_id: itemId };
   if (itemId === "replace_hand_tiles") purchase.hand_indexes = [...selectedShopHand];
   if (itemId === "move_board_tile") {
-    purchase.source_index = moveSourceIndex;
-    purchase.destination_index = moveDestinationIndex;
+    const moved = movePermutation.some((orig, i) => orig !== i);
+    if (moved) purchase.permutation = movePermutation;
   }
   selectedShopHand.clear();
   selectedHand.clear();
   selectedBoard.clear();
   moveSourceIndex = null;
   moveDestinationIndex = null;
+  movePermutation = null;
   window.pyPurchaseShopItem(JSON.stringify(purchase));
 }
 
@@ -236,8 +272,11 @@ function render(stateText) {
     ui.score.addEventListener("animationend", () => ui.score.classList.remove("score-pulse"), { once: true });
   }
   if (boardWasSmashed) playAnimation(ui.board, "smash-impact");
-  if (state.game_over && !previousState?.game_over) playAnimation(ui.dealButton, "game-over-pulse");
-  if (state.game_over && !previousState?.game_over) playSound("game-over");
+  if (state.game_over && !previousState?.game_over) {
+    playAnimation(ui.dealButton, "game-over-pulse");
+    playSound("game-over");
+    showGameOverModal(state.score, state.history.length);
+  }
   if (state.kind === "success") playSound(previousState?.phase === "smash" ? "smash" : "success");
   if (state.kind === "error") playSound("error");
 }
@@ -285,19 +324,31 @@ ui.board.addEventListener("click", event => {
 });
 ui.moveSelection.addEventListener("click", event => {
   const tile = event.target.closest("[data-move-copy-index]");
-  if (!tile || tile.disabled || moveSourceIndex !== null) return;
-  moveSourceIndex = Number(tile.dataset.moveCopyIndex);
-  moveDestinationIndex = moveSourceIndex;
+  if (!tile || tile.disabled) return;
+  const clickedIndex = Number(tile.dataset.moveCopyIndex);
+  if (moveSourceIndex !== null && clickedIndex === moveSourceIndex) {
+    moveSourceIndex = null;
+    moveDestinationIndex = null;
+  } else {
+    moveSourceIndex = clickedIndex;
+    moveDestinationIndex = clickedIndex;
+  }
   render(JSON.stringify({ ...currentState, message: "", kind: "" }));
 });
 ui.moveLeft.addEventListener("click", () => {
   if (moveDestinationIndex > 0) {
+    const temp = movePermutation[moveDestinationIndex];
+    movePermutation[moveDestinationIndex] = movePermutation[moveDestinationIndex - 1];
+    movePermutation[moveDestinationIndex - 1] = temp;
     moveDestinationIndex -= 1;
     render(JSON.stringify({ ...currentState, message: "", kind: "" }));
   }
 });
 ui.moveRight.addEventListener("click", () => {
   if (moveDestinationIndex < currentState.board.length - 1) {
+    const temp = movePermutation[moveDestinationIndex];
+    movePermutation[moveDestinationIndex] = movePermutation[moveDestinationIndex + 1];
+    movePermutation[moveDestinationIndex + 1] = temp;
     moveDestinationIndex += 1;
     render(JSON.stringify({ ...currentState, message: "", kind: "" }));
   }
@@ -305,6 +356,7 @@ ui.moveRight.addEventListener("click", () => {
 ui.moveReset.addEventListener("click", () => {
   moveSourceIndex = null;
   moveDestinationIndex = null;
+  movePermutation = null;
   render(JSON.stringify({ ...currentState, message: "", kind: "" }));
 });
 ui.hand.addEventListener("click", event => {
@@ -329,6 +381,7 @@ ui.dealButton.addEventListener("click", () => {
   selectedShopHand.clear();
   moveSourceIndex = null;
   moveDestinationIndex = null;
+  movePermutation = null;
   playSound("deal");
   animateNextHandDeal = true;
   window.pyStartRound();
@@ -354,4 +407,337 @@ ui.nextRoundButton.addEventListener("click", () => {
   window.pyNextRound();
 });
 
+const LEADERBOARD_PAGE_SIZE = 50;
+const LEADERBOARD_CACHE_TTL = 60000;
+let pendingGameOverData = null;
+let leaderboardCursor = null;
+let leaderboardLoading = false;
+let leaderboardDone = false;
+let leaderboardRank = 0;
+let playerInfo = null;
+let leaderboardCache = null;
+
+const NAME_COOKIE = "wordSmash.name";
+
+function getCookieValue(name) {
+  const raw = document.cookie;
+  const part = (raw || "").split("; ").find(item => item.startsWith(`${name}=`));
+  if (!part) return "";
+  try {
+    return decodeURIComponent(part.slice(name.length + 1));
+  } catch {
+    return part.slice(name.length + 1);
+  }
+}
+
+function setCookieValue(name, value) {
+  document.cookie = `${name}=${encodeURIComponent(value)};path=/;max-age=31536000;SameSite=Lax`;
+  try {
+    localStorage.setItem(name, value);
+  } catch {
+    return;
+  }
+}
+
+function getSavedName() {
+  return getCookieValue(NAME_COOKIE) || (typeof localStorage !== "undefined" && localStorage.getItem(NAME_COOKIE)) || "";
+}
+
+function setSavedName(value) {
+  setCookieValue(NAME_COOKIE, value);
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+}
+
+function sanitizeName(value) {
+  return String(value).replace(/[^a-zA-Z0-9 _\-]/g, "").slice(0, 20);
+}
+
+function nameKey(name) {
+  return encodeURIComponent(name.trim().toLowerCase());
+}
+
+function showGameOverModal(score, wordCount) {
+  pendingGameOverData = { score, wordCount };
+  ui.modalScore.textContent = score;
+  ui.modalWords.textContent = wordCount;
+  ui.playerNameInput.value = getSavedName();
+  ui.playerNameInput.focus();
+  ui.playerNameInput.select();
+  if (ui.modalError) ui.modalError.hidden = true;
+  if (typeof ui.gameOverModal?.showModal === "function") {
+    ui.gameOverModal.showModal();
+  } else {
+    ui.gameOverModal.setAttribute("open", "");
+  }
+}
+
+function closeGameOverModal() {
+  if (typeof ui.gameOverModal?.close === "function") {
+    ui.gameOverModal.close();
+  } else {
+    ui.gameOverModal.removeAttribute("open");
+  }
+  pendingGameOverData = null;
+}
+
+function builderRow(d, index, isPlayer = false) {
+  return `<tr${isPlayer ? ' class="leaderboard-player-row"' : ""}>
+    <td class="ld-rank">#${index}</td>
+    <td class="ld-name">${escapeHtml(d.name)}${isPlayer ? " (you)" : ""}</td>
+    <td class="ld-score">${Number(d.score).toLocaleString()}</td>
+    <td class="ld-words">${Number(d.word_count) || 0}</td>
+  </tr>`;
+}
+
+function setLeaderboardError(message) {
+  leaderboardDone = true;
+  if (message && !ui.leaderboardBody.innerHTML) {
+    ui.leaderboardBody.innerHTML = `<tr><td colspan="4" class="empty-state error">${escapeHtml(message)}</td></tr>`;
+  }
+  ui.leaderboardStatus.textContent = "Error";
+}
+
+async function countHigher(orderValue) {
+  const q = query(collection(db, "leaderboard"), where("order_value", ">", orderValue));
+  const snap = await getDocs(q);
+  return snap.size;
+}
+
+function chipRowHtml(p) {
+  return `<tr class="leaderboard-chip-row" data-ld-jump="1" style="cursor:pointer">
+    <td class="ld-rank">#${p.rank}</td>
+    <td class="ld-name">${escapeHtml(p.name)} (you)</td>
+    <td class="ld-score">${p.score.toLocaleString()}</td>
+    <td class="ld-words">${p.wordCount}</td>
+  </tr>`;
+}
+
+function syncPlayerChip() {
+  if (!playerInfo) return;
+  ui.leaderboardBody.querySelectorAll("tr.leaderboard-chip-row").forEach(r => r.remove());
+  const playerRow = ui.leaderboardBody.querySelector("tr.leaderboard-player-row");
+  const wrap = ui.leaderboardScroll;
+  let playerVisible = false;
+  if (playerRow && wrap) {
+    const rowTop = playerRow.offsetTop - wrap.offsetTop;
+    playerVisible = rowTop >= wrap.scrollTop && rowTop < wrap.scrollTop + wrap.clientHeight - 40;
+  }
+  if (!playerVisible) {
+    ui.leaderboardBody.insertAdjacentHTML("beforeend", chipRowHtml(playerInfo));
+  }
+}
+
+async function submitScoreSafe(name, score, wordCount) {
+  if (!currentUser) {
+    try {
+      const cred = await signInAnonymously(auth);
+      currentUser = cred.user;
+    } catch (e) {
+      console.error("Anonymous auth failed", e);
+      return { ok: false, error: "Anonymous sign-in failed. Check that the Anonymous auth method is enabled and the API key is valid." };
+    }
+  }
+  const cleanName = name.slice(0, 20);
+  const orderValue = score * 1000000000 + (1000000000 - wordCount);
+  try {
+    const entryId = nameKey(name);
+    const existing = await getDoc(doc(db, "leaderboard", entryId));
+    if (existing.exists() && score <= Number(existing.data().score || -1)) {
+      return { ok: true, updated: false };
+    }
+    await setDoc(doc(db, "leaderboard", entryId), {
+      name: cleanName,
+      score,
+      word_count: wordCount,
+      order_value: orderValue,
+      timestamp: Date.now()
+    }, { merge: false });
+    return { ok: true, updated: true };
+  } catch (e) {
+    console.error("Firestore submit failed", e);
+    return { ok: false, error: "Score submit failed. Check Firestore rules allow authenticated writes and that the database exists: " + String(e.message || e) };
+  }
+}
+
+async function handleSubmit() {
+  const rawName = (ui.playerNameInput.value || "").trim() || "Anonymous";
+  const name = sanitizeName(rawName);
+  if (ui.modalError) ui.modalError.hidden = true;
+  setSavedName(name);
+  const data = pendingGameOverData;
+  closeGameOverModal();
+  if (!data) return;
+  const result = await submitScoreSafe(name, data.score, data.wordCount);
+  if (result && !result.ok && ui.modalError) {
+    ui.modalError.textContent = result.error;
+    ui.modalError.hidden = false;
+    ui.gameOverModal.showModal();
+  } else {
+    leaderboardCache = null;
+    await fetchLeaderboard(true);
+  }
+}
+
+ui.modalSubmitBtn?.addEventListener("click", handleSubmit);
+ui.modalSkipBtn?.addEventListener("click", closeGameOverModal);
+ui.playerNameInput?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    handleSubmit();
+  }
+});
+ui.playerNameInput?.addEventListener("input", (e) => {
+  e.target.value = sanitizeName(e.target.value);
+});
+
+async function fetchLeaderboard(reset = false) {
+  if (leaderboardLoading || (!reset && leaderboardDone)) return;
+  leaderboardLoading = true;
+  try {
+    if (reset) {
+      leaderboardCursor = null;
+      leaderboardDone = false;
+      leaderboardRank = 0;
+      playerInfo = null;
+      ui.leaderboardBody.innerHTML = "";
+      ui.leaderboardEnd.hidden = true;
+      ui.leaderboardEnd.textContent = "";
+      const savedName = getSavedName();
+      if (savedName) {
+        const pinRef = doc(db, "leaderboard", nameKey(savedName));
+        const pinSnap = await getDoc(pinRef);
+        if (pinSnap.exists()) {
+          const d = pinSnap.data();
+          playerInfo = {
+            id: pinSnap.id,
+            name: String(d.name),
+            score: Number(d.score) || 0,
+            wordCount: Number(d.word_count) || 0,
+            rank: (await countHigher(Number(d.order_value) || 0)) + 1,
+          };
+        }
+      }
+      const now = Date.now();
+      if (leaderboardCache && now - leaderboardCache.time < LEADERBOARD_CACHE_TTL) {
+        renderLeaderboardPage(leaderboardCache.docs);
+        leaderboardLoading = false;
+        return;
+      }
+    }
+    let q = query(collection(db, "leaderboard"), orderBy("order_value", "desc"), limit(LEADERBOARD_PAGE_SIZE));
+    if (leaderboardCursor) q = query(q, startAfter(leaderboardCursor));
+    const snap = await getDocs(q);
+
+    if (!leaderboardCursor) {
+      leaderboardCache = { docs: snap.docs, time: Date.now() };
+    }
+
+    renderLeaderboardPage(snap.docs);
+  } catch (e) {
+    console.error("Leaderboard load failed", e);
+    setLeaderboardError(e.message || String(e));
+  } finally {
+    leaderboardLoading = false;
+    const wrap = ui.leaderboardScroll;
+    if (!leaderboardDone && wrap && wrap.scrollHeight <= wrap.clientHeight + 2) {
+      fetchLeaderboard();
+    }
+  }
+}
+
+function renderLeaderboardPage(docs) {
+  let morePages = docs.length >= LEADERBOARD_PAGE_SIZE;
+  const rendered = docs.map(docEntry => {
+    leaderboardRank += 1;
+    return builderRow(docEntry.data(), leaderboardRank, playerInfo && docEntry.id === playerInfo.id);
+  }).join("");
+
+  if (docs.length === 0 && !ui.leaderboardBody.innerHTML) {
+    ui.leaderboardBody.innerHTML = '<tr><td colspan="4" class="empty-state">No scores yet. Be the first!</td></tr>';
+    ui.leaderboardStatus.textContent = "";
+    leaderboardDone = true;
+    return;
+  }
+  leaderboardCursor = docs[docs.length - 1];
+  if (rendered) ui.leaderboardBody.insertAdjacentHTML("beforeend", rendered);
+
+  leaderboardDone = !morePages;
+  ui.leaderboardEnd.hidden = false;
+  ui.leaderboardEnd.textContent = morePages ? "Scroll for more" : (ui.leaderboardBody.innerHTML ? "All caught up" : "");
+  ui.leaderboardStatus.textContent = "";
+  syncPlayerChip();
+}
+
+ui.leaderboardBody?.addEventListener("click", async (e) => {
+  if (!e.target.closest("[data-ld-jump]")) return;
+  const body = ui.leaderboardBody;
+  const wrap = ui.leaderboardScroll;
+  if (!wrap) return;
+  let guard = 0;
+  while (!body.querySelector("tr.leaderboard-player-row") && !leaderboardDone && guard < 10) {
+    await fetchLeaderboard();
+    guard++;
+  }
+  const row = body.querySelector("tr.leaderboard-player-row");
+  if (row && wrap) {
+    const target = row.getBoundingClientRect().top - wrap.getBoundingClientRect().top + wrap.scrollTop;
+    wrap.scrollTo({ top: Math.max(0, target - 20), behavior: "smooth" });
+  }
+});
+
+let scrollTimer = null;
+ui.leaderboardScroll?.addEventListener("scroll", () => {
+  syncPlayerChip();
+  if (scrollTimer) return;
+  scrollTimer = setTimeout(() => {
+    scrollTimer = null;
+    const wrap = ui.leaderboardScroll;
+    if (wrap.scrollTop + wrap.clientHeight >= wrap.scrollHeight - 32) {
+      fetchLeaderboard();
+    }
+  }, 300);
+});
+
+auth.onAuthStateChanged(user => {
+  currentUser = user;
+});
+
+fetchLeaderboard(true);
+
 window.wordSmashUI = { render, setLoading, setReady, setError };
+
+document.querySelectorAll("details.how-to-play").forEach(details => {
+  const summary = details.querySelector("summary");
+  const content = details.querySelector(":not(summary)");
+  if (!summary || !content) return;
+  content.style.overflow = "hidden";
+  summary.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (details.open) {
+      content.style.maxHeight = content.scrollHeight + "px";
+      content.offsetHeight;
+      content.style.transition = "max-height 0.3s ease";
+      content.style.maxHeight = "0px";
+      content.addEventListener("transitionend", function h() {
+        details.open = false;
+        content.style.transition = "";
+        content.style.maxHeight = "";
+        content.removeEventListener("transitionend", h);
+      });
+    } else {
+      details.open = true;
+      content.style.maxHeight = "0px";
+      content.offsetHeight;
+      content.style.transition = "max-height 0.3s ease";
+      content.style.maxHeight = content.scrollHeight + "px";
+      content.addEventListener("transitionend", function h() {
+        content.style.transition = "";
+        content.style.maxHeight = "";
+        content.removeEventListener("transitionend", h);
+      });
+    }
+  });
+});

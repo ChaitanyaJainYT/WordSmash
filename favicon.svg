@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Dark theme background grid pattern matching the game UI -->
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#1f2d33" stroke-width="1.5" />
+    </pattern>
+    <!-- Drop shadow for the tile elements -->
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.5" />
+    </filter>
+  </defs>
+
+  <!-- Outer Circular Favicon Container -->
+  <circle cx="256" cy="256" r="248" fill="#121a1d" stroke="#2a3b42" stroke-width="8" />
+
+  <!-- Background Grid -->
+  <circle cx="256" cy="256" r="240" fill="url(#grid)" />
+
+  <!-- Inner Subtle Ring -->
+  <circle cx="256" cy="256" r="236" fill="none" stroke="#2e424a" stroke-width="2" />
+
+  <!-- MAIN LOGO GRAPHIC GROUP -->
+  <g transform="translate(16, 34)">
+    
+    <!-- Bold Letter "W" (Left Side) -->
+    <text x="150" y="300" 
+          font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" 
+          font-size="200" 
+          font-weight="900" 
+          fill="#f0f4f1" 
+          text-anchor="middle"
+          filter="url(#shadow)">W</text>
+
+    <!-- Smashed Letter Tile "S" (Right Side, Tilted & Cracked) -->
+    <g transform="translate(330, 215) rotate(13)" filter="url(#shadow)">
+      
+      <!-- Yellow Card Base -->
+      <rect x="-85" y="-115" width="170" height="230" rx="20" ry="20" fill="#e2e792" stroke="#121a1d" stroke-width="6" />
+      
+      <!-- Subscript Score "1" -->
+      <text x="50" y="92" 
+            font-family="system-ui, -apple-system, sans-serif" 
+            font-size="28" 
+            font-weight="800" 
+            fill="#121a1d" 
+            text-anchor="middle">1</text>
+
+      <!-- Tile Letter "S" -->
+      <text x="-8" y="52" 
+            font-family="system-ui, -apple-system, sans-serif" 
+            font-size="150" 
+            font-weight="900" 
+            fill="#121a1d" 
+            text-anchor="middle">S</text>
+
+      <!-- Crack Overlay (Smash Effect) -->
+      <path d="M -81 -30 
+               L -25 -10 
+               L -40 20 
+               L 10 0 
+               L -10 50 
+               L 25 80 
+               L 85 30" 
+            fill="none" 
+            stroke="#121a1d" 
+            stroke-width="8" 
+            stroke-linejoin="round" 
+            stroke-linecap="round" />
+      
+      <!-- Secondary Crack Lines -->
+      <path d="M -25 -10 L -35 -60" fill="none" stroke="#121a1d" stroke-width="5" stroke-linecap="round" />
+      <path d="M 10 0 L 45 -40" fill="none" stroke="#121a1d" stroke-width="5" stroke-linecap="round" />
+      <path d="M -10 50 L -50 80" fill="none" stroke="#121a1d" stroke-width="5" stroke-linecap="round" />
+    </g>
+
+  </g>
+</svg>

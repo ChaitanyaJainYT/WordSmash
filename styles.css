@@ -81,7 +81,7 @@ h1 { margin: 0; font-size: clamp(42px, 8vw, 86px); line-height: .87; letter-spac
 .board-slot:disabled { cursor: default; opacity: 1; }
 .board-slot.filled:not(:disabled) { cursor: pointer; }
 .phase-note { min-height: 40px; padding: 15px 0 0; color: var(--muted); font-size: 13px; line-height: 1.4; }
-.hand { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; min-height: calc(var(--tile-size) * 2 + 8px); margin: 12px 0 16px; }
+.hand { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; min-height: calc(var(--tile-size) * 2 + 8px); margin: 12px 0 16px; }
 .hand-card { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; width: var(--tile-size); aspect-ratio: 1; padding: 4px 0 3px; border: 1px solid var(--card-border); border-radius: 5px; color: var(--dark-ink); background: var(--lime); box-shadow: 3px 3px 0 var(--card-border); transition: transform .16s ease, box-shadow .16s ease, background-color .16s ease; }
 .card-letter { font: 600 22px/1 "DM Mono", monospace; }
 .card-points, .board-points { position: absolute; right: 4px; bottom: 3px; margin: 0; font: 500 8px/1 "DM Mono", monospace; }
@@ -218,7 +218,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   .side-panel { order: -1; }
   .panel { padding: 18px; }
   .board { min-height: 0; padding: 14px 6px; gap: 3px; }
-  .hand { --hand-tile-size: clamp(48px, 15vw, 58px); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; min-height: calc(var(--hand-tile-size) * 2 + 10px); }
+  .hand { --hand-tile-size: clamp(48px, 15vw, 58px); gap: 10px; min-height: calc(var(--hand-tile-size) * 2 + 10px); }
   .hand-card { width: min(100%, var(--hand-tile-size)); justify-self: center; }
   .action-row { flex-direction: column; }
   .feedback { right: 12px; bottom: 12px; }

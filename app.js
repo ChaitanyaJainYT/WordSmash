@@ -77,7 +77,6 @@ const ui = {
   leaderboardStatus: document.querySelector("#leaderboard-status"),
   leaderboardScroll: document.querySelector("#leaderboard-scroll"),
   leaderboardEnd: document.querySelector("#leaderboard-end"),
-  leaderboardIndicator: document.querySelector("#leaderboard-indicator"),
   gameOverModal: document.querySelector("#game-over-modal"),
   modalScore: document.querySelector("#modal-score"),
   modalWords: document.querySelector("#modal-words"),
@@ -485,7 +484,7 @@ function closeGameOverModal() {
 }
 
 function builderRow(d, index, isPlayer = false) {
-  return `<tr${isPlayer ? ' class="leaderboard-highlight-row"' : ""}>
+  return `<tr${isPlayer ? ' class="leaderboard-player-row"' : ""}>
     <td class="ld-rank">#${index}</td>
     <td class="ld-name">${escapeHtml(d.name)}${isPlayer ? " (you)" : ""}</td>
     <td class="ld-score">${Number(d.score).toLocaleString()}</td>
@@ -505,6 +504,30 @@ async function countHigher(orderValue) {
   const q = query(collection(db, "leaderboard"), where("order_value", ">", orderValue));
   const snap = await getDocs(q);
   return snap.size;
+}
+
+function chipRowHtml(p) {
+  return `<tr class="leaderboard-chip-row" data-ld-jump="1" style="cursor:pointer">
+    <td class="ld-rank">#${p.rank}</td>
+    <td class="ld-name">${escapeHtml(p.name)} (you)</td>
+    <td class="ld-score">${p.score.toLocaleString()}</td>
+    <td class="ld-words">${p.wordCount}</td>
+  </tr>`;
+}
+
+function syncPlayerChip() {
+  if (!playerInfo) return;
+  ui.leaderboardBody.querySelectorAll("tr.leaderboard-chip-row").forEach(r => r.remove());
+  const playerRow = ui.leaderboardBody.querySelector("tr.leaderboard-player-row");
+  const wrap = ui.leaderboardScroll;
+  let playerVisible = false;
+  if (playerRow && wrap) {
+    const rowTop = playerRow.offsetTop - wrap.offsetTop;
+    playerVisible = rowTop >= wrap.scrollTop && rowTop < wrap.scrollTop + wrap.clientHeight - 40;
+  }
+  if (!playerVisible) {
+    ui.leaderboardBody.insertAdjacentHTML("beforeend", chipRowHtml(playerInfo));
+  }
 }
 
 async function submitScoreSafe(name, score, wordCount) {
@@ -645,40 +668,29 @@ function renderLeaderboardPage(docs) {
   ui.leaderboardEnd.hidden = false;
   ui.leaderboardEnd.textContent = morePages ? "Scroll for more" : (ui.leaderboardBody.innerHTML ? "All caught up" : "");
   ui.leaderboardStatus.textContent = "";
-  updateIndicator();
+  syncPlayerChip();
 }
 
-function updateIndicator() {
-  const indicator = ui.leaderboardIndicator;
+ui.leaderboardBody?.addEventListener("click", async (e) => {
+  if (!e.target.closest("[data-ld-jump]")) return;
+  const body = ui.leaderboardBody;
   const wrap = ui.leaderboardScroll;
-  if (!indicator || !wrap || !playerInfo) { if (indicator) indicator.hidden = true; return; }
-  const playerRow = ui.leaderboardBody.querySelector("tr.leaderboard-highlight-row");
-  if (!playerRow) { indicator.hidden = true; return; }
-  const rowTop = playerRow.offsetTop - wrap.offsetTop;
-  const rowBottom = rowTop + playerRow.offsetHeight;
-  const scrollTop = wrap.scrollTop;
-  const viewBottom = scrollTop + wrap.clientHeight;
-  const headerHeight = 34;
-  if (rowTop >= scrollTop + headerHeight && rowBottom <= viewBottom) {
-    indicator.hidden = true;
-    return;
+  if (!wrap) return;
+  let guard = 0;
+  while (!body.querySelector("tr.leaderboard-player-row") && !leaderboardDone && guard < 10) {
+    await fetchLeaderboard();
+    guard++;
   }
-  indicator.hidden = false;
-  indicator.className = rowTop < scrollTop + headerHeight ? "leaderboard-table__indicator at-top" : "leaderboard-table__indicator at-bottom";
-  indicator.innerHTML = `<td class="ld-rank">#${playerInfo.rank}</td><td class="ld-name">${escapeHtml(playerInfo.name)} (you)</td><td class="ld-score">${playerInfo.score.toLocaleString()}</td><td class="ld-words">${playerInfo.wordCount}</td>`;
-}
-
-ui.leaderboardIndicator?.addEventListener("click", () => {
-  const wrap = ui.leaderboardScroll;
-  const playerRow = ui.leaderboardBody.querySelector("tr.leaderboard-highlight-row");
-  if (!wrap || !playerRow) return;
-  const rowTop = playerRow.offsetTop - wrap.offsetTop;
-  wrap.scrollTo({ top: Math.max(0, rowTop - 40), behavior: "smooth" });
+  const row = body.querySelector("tr.leaderboard-player-row");
+  if (row && wrap) {
+    const target = row.getBoundingClientRect().top - wrap.getBoundingClientRect().top + wrap.scrollTop;
+    wrap.scrollTo({ top: Math.max(0, target - 20), behavior: "smooth" });
+  }
 });
 
 let scrollTimer = null;
 ui.leaderboardScroll?.addEventListener("scroll", () => {
-  updateIndicator();
+  syncPlayerChip();
   if (scrollTimer) return;
   scrollTimer = setTimeout(() => {
     scrollTimer = null;

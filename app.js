@@ -89,6 +89,7 @@ const ui = {
 let selectedHand = new Set();
 let selectedBoard = new Set();
 let selectedShopHand = new Set();
+let movePermutation = null;
 let moveSourceIndex = null;
 let moveDestinationIndex = null;
 let currentState = null;
@@ -142,12 +143,9 @@ function playAnimation(element, className) {
 }
 
 function renderMoveSelection(state, moveEnabled) {
-  const board = state.board.slice();
+  if (!movePermutation) movePermutation = state.board.map((_, i) => i);
+  const board = movePermutation.map(i => state.board[i]);
   const selected = moveSourceIndex !== null;
-  if (selected && moveDestinationIndex !== null) {
-    const movedTile = board.splice(moveSourceIndex, 1)[0];
-    board.splice(moveDestinationIndex, 0, movedTile);
-  }
   ui.moveSelection.innerHTML = `<div class="move-board-copy" aria-label="Select a board tile to move">${board.map((letter, index) => `<button class="move-copy-tile ${letter ? "filled" : "empty"} ${selected && index === moveDestinationIndex ? "selected" : ""}" data-move-copy-index="${index}" type="button" aria-label="${letter ? `Letter ${letter.toUpperCase()}, worth ${state.letter_points[letter]} points` : "Empty board space"}" ${moveEnabled ? "" : "disabled"}>${letter ? letter.toUpperCase() : ""}</button>`).join("")}</div>`;
   ui.moveLeft.disabled = !moveEnabled || !selected || moveDestinationIndex <= 0;
   ui.moveRight.disabled = !moveEnabled || !selected || moveDestinationIndex >= state.board.length - 1;
@@ -172,6 +170,7 @@ function renderShop(state) {
   if (!moveEnabled) {
     moveSourceIndex = null;
     moveDestinationIndex = null;
+    movePermutation = null;
   }
   renderMoveSelection(state, moveEnabled);
 
@@ -183,7 +182,7 @@ function renderShop(state) {
       : item.id === "replace_hand_tiles"
       ? selectedShopHand.size >= 1 && selectedShopHand.size <= 4
       : item.id === "move_board_tile"
-        ? moveSourceIndex !== null && moveDestinationIndex !== null && moveSourceIndex !== moveDestinationIndex
+        ? movePermutation !== null && movePermutation.some((orig, i) => orig !== i)
       : true;
     button.disabled = !active || !item.affordable || !ready;
   });
@@ -194,14 +193,15 @@ function purchaseShopItem(itemId) {
   const purchase = { item_id: itemId };
   if (itemId === "replace_hand_tiles") purchase.hand_indexes = [...selectedShopHand];
   if (itemId === "move_board_tile") {
-    purchase.source_index = moveSourceIndex;
-    purchase.destination_index = moveDestinationIndex;
+    const moved = movePermutation.some((orig, i) => orig !== i);
+    if (moved) purchase.permutation = movePermutation;
   }
   selectedShopHand.clear();
   selectedHand.clear();
   selectedBoard.clear();
   moveSourceIndex = null;
   moveDestinationIndex = null;
+  movePermutation = null;
   window.pyPurchaseShopItem(JSON.stringify(purchase));
 }
 
@@ -324,19 +324,31 @@ ui.board.addEventListener("click", event => {
 });
 ui.moveSelection.addEventListener("click", event => {
   const tile = event.target.closest("[data-move-copy-index]");
-  if (!tile || tile.disabled || moveSourceIndex !== null) return;
-  moveSourceIndex = Number(tile.dataset.moveCopyIndex);
-  moveDestinationIndex = moveSourceIndex;
+  if (!tile || tile.disabled) return;
+  const clickedIndex = Number(tile.dataset.moveCopyIndex);
+  if (moveSourceIndex !== null && clickedIndex === moveSourceIndex) {
+    moveSourceIndex = null;
+    moveDestinationIndex = null;
+  } else {
+    moveSourceIndex = clickedIndex;
+    moveDestinationIndex = clickedIndex;
+  }
   render(JSON.stringify({ ...currentState, message: "", kind: "" }));
 });
 ui.moveLeft.addEventListener("click", () => {
   if (moveDestinationIndex > 0) {
+    const temp = movePermutation[moveDestinationIndex];
+    movePermutation[moveDestinationIndex] = movePermutation[moveDestinationIndex - 1];
+    movePermutation[moveDestinationIndex - 1] = temp;
     moveDestinationIndex -= 1;
     render(JSON.stringify({ ...currentState, message: "", kind: "" }));
   }
 });
 ui.moveRight.addEventListener("click", () => {
   if (moveDestinationIndex < currentState.board.length - 1) {
+    const temp = movePermutation[moveDestinationIndex];
+    movePermutation[moveDestinationIndex] = movePermutation[moveDestinationIndex + 1];
+    movePermutation[moveDestinationIndex + 1] = temp;
     moveDestinationIndex += 1;
     render(JSON.stringify({ ...currentState, message: "", kind: "" }));
   }
@@ -344,6 +356,7 @@ ui.moveRight.addEventListener("click", () => {
 ui.moveReset.addEventListener("click", () => {
   moveSourceIndex = null;
   moveDestinationIndex = null;
+  movePermutation = null;
   render(JSON.stringify({ ...currentState, message: "", kind: "" }));
 });
 ui.hand.addEventListener("click", event => {
@@ -368,6 +381,7 @@ ui.dealButton.addEventListener("click", () => {
   selectedShopHand.clear();
   moveSourceIndex = null;
   moveDestinationIndex = null;
+  movePermutation = null;
   playSound("deal");
   animateNextHandDeal = true;
   window.pyStartRound();

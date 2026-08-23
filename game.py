@@ -259,7 +259,7 @@ class WordSmashGame:
             "max_hammer_smash": self.max_hammer_smash,
         }
 
-    def purchase_shop_item(self, item_id, hand_indexes=None, source_index=None, destination_index=None):
+    def purchase_shop_item(self, item_id, hand_indexes=None, moves=None, permutation=None):
         if self.game_over:
             raise ValueError("The shop is closed after game over. Deal a new board to continue.")
         if item_id not in SHOP_ITEMS:
@@ -267,7 +267,7 @@ class WordSmashGame:
 
         price = self.shop_price(item_id)
         if self.score < price:
-            raise ValueError(f"You need {price} more points to buy {SHOP_ITEMS[item_id]['label'].lower()}.")
+            raise ValueError(f"You need {price} more points to buy {SHOP_ITEMS[item_id]['label']}.")
 
         hint_word = None
         if item_id == "hint":
@@ -283,10 +283,10 @@ class WordSmashGame:
             if any(index < 0 or index >= len(self.hand) for index in selected):
                 raise ValueError("That hand tile is not available.")
         elif item_id == "move_board_tile":
-            if source_index is None or destination_index is None:
-                raise ValueError("Choose a board tile and a destination.")
-            if not 0 <= source_index < len(self.board) or not 0 <= destination_index < len(self.board):
-                raise ValueError("Choose positions on the current board.")
+            if not permutation:
+                raise ValueError("No moves queued.")
+            if len(permutation) != len(self.board):
+                raise ValueError("Invalid move permutation.")
 
         self.score -= price
         self.shop_purchases[item_id] += 1
@@ -300,8 +300,7 @@ class WordSmashGame:
             for index in selected:
                 self.hand[index] = random.choices(letters, weights=weights, k=1)[0]
         elif item_id == "move_board_tile":
-            moved_tile = self.board.pop(source_index)
-            self.board.insert(destination_index, moved_tile)
+            self.board = [self.board[i] for i in permutation]
         return hint_word
 
     def state(self, message="", kind=""):
@@ -389,8 +388,8 @@ def purchase_shop_item(value="", *_args):
         hint_word = game.purchase_shop_item(
             purchase.get("item_id", ""),
             purchase.get("hand_indexes"),
-            purchase.get("source_index"),
-            purchase.get("destination_index"),
+            purchase.get("moves"),
+            purchase.get("permutation"),
         )
         message = f"Hint: try {hint_word.upper()}." if hint_word else "Power-up purchased."
         render(message, "success")

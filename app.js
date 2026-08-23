@@ -523,7 +523,7 @@ async function submitScoreSafe(name, score, wordCount) {
     }
   }
   const cleanName = name.slice(0, 20);
-  const orderValue = score * 1000000000 + (1000000000 - wordCount);
+  const orderValue = score * 1000000000000 - wordCount * 1000000 - Date.now();
   try {
     const entryId = nameKey(name);
     const existing = await getDoc(doc(db, "leaderboard", entryId));

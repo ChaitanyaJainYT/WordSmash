@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { getFirestore, collection, query, orderBy, limit, startAfter, getDocs, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app-check.js";
 
 const themeStorageKey = "wordSmash.theme";
 const themeToggle = document.querySelector("#theme-toggle");
@@ -15,6 +16,10 @@ const firebaseConfig = {
 };
 
 const firebaseApp = initializeApp(firebaseConfig);
+initializeAppCheck(firebaseApp, {
+  provider: new ReCaptchaEnterpriseProvider("6Le54ZQtAAAAAAD0THUveULsrVT1qbDPY_EzbXPy"),
+  isTokenAutoRefreshEnabled: true,
+});
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 

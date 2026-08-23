@@ -437,6 +437,10 @@ function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 }
 
+function sanitizeName(value) {
+  return String(value).replace(/[^a-zA-Z0-9 _\-]/g, "").slice(0, 20);
+}
+
 function nameKey(name) {
   return encodeURIComponent(name.trim().toLowerCase());
 }
@@ -491,7 +495,7 @@ async function countHigher(orderValue) {
 function chipRowHtml(p) {
   return `<tr class="leaderboard-chip-row" data-ld-jump="1" style="cursor:pointer">
     <td class="ld-rank">#${p.rank}</td>
-    <td class="ld-name">${p.name} (you)</td>
+    <td class="ld-name">${escapeHtml(p.name)} (you)</td>
     <td class="ld-score">${p.score.toLocaleString()}</td>
     <td class="ld-words">${p.wordCount}</td>
   </tr>`;
@@ -545,7 +549,8 @@ async function submitScoreSafe(name, score, wordCount) {
 }
 
 async function handleSubmit() {
-  const name = (ui.playerNameInput.value || "").trim() || "Anonymous";
+  const rawName = (ui.playerNameInput.value || "").trim() || "Anonymous";
+  const name = sanitizeName(rawName);
   if (ui.modalError) ui.modalError.hidden = true;
   setSavedName(name);
   const data = pendingGameOverData;
@@ -569,6 +574,9 @@ ui.playerNameInput?.addEventListener("keydown", (e) => {
     e.preventDefault();
     handleSubmit();
   }
+});
+ui.playerNameInput?.addEventListener("input", (e) => {
+  e.target.value = sanitizeName(e.target.value);
 });
 
 async function fetchLeaderboard(reset = false) {

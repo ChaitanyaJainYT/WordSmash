@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
-import { getFirestore, collection, query, orderBy, limit, startAfter, getDocs, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+import { getFirestore, collection, query, orderBy, limit, startAfter, getDocs, doc, getDoc, setDoc, where } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app-check.js";
 
 const themeStorageKey = "wordSmash.theme";
@@ -393,13 +393,15 @@ ui.nextRoundButton.addEventListener("click", () => {
   window.pyNextRound();
 });
 
-const LEADERBOARD_PAGE_SIZE = 10;
+const LEADERBOARD_PAGE_SIZE = 50;
+const LEADERBOARD_CACHE_TTL = 60000;
 let pendingGameOverData = null;
 let leaderboardCursor = null;
 let leaderboardLoading = false;
 let leaderboardDone = false;
 let leaderboardRank = 0;
 let playerInfo = null;
+let leaderboardCache = null;
 
 const NAME_COOKIE = "wordSmash.name";
 
@@ -481,12 +483,9 @@ function setLeaderboardError(message) {
 }
 
 async function countHigher(orderValue) {
-  const all = await getDocs(collection(db, "leaderboard"));
-  let above = 0;
-  all.docs.forEach(docEntry => {
-    if (Number(docEntry.data().order_value) > orderValue) above += 1;
-  });
-  return above;
+  const q = query(collection(db, "leaderboard"), where("order_value", ">", orderValue));
+  const snap = await getDocs(q);
+  return snap.size;
 }
 
 function chipRowHtml(p) {
@@ -558,6 +557,7 @@ async function handleSubmit() {
     ui.modalError.hidden = false;
     ui.gameOverModal.showModal();
   } else {
+    leaderboardCache = null;
     await fetchLeaderboard(true);
   }
 }
@@ -598,31 +598,22 @@ async function fetchLeaderboard(reset = false) {
           };
         }
       }
+      const now = Date.now();
+      if (leaderboardCache && now - leaderboardCache.time < LEADERBOARD_CACHE_TTL) {
+        renderLeaderboardPage(leaderboardCache.docs);
+        leaderboardLoading = false;
+        return;
+      }
     }
     let q = query(collection(db, "leaderboard"), orderBy("order_value", "desc"), limit(LEADERBOARD_PAGE_SIZE));
     if (leaderboardCursor) q = query(q, startAfter(leaderboardCursor));
     const snap = await getDocs(q);
 
-    let morePages = snap.docs.length >= LEADERBOARD_PAGE_SIZE;
-    const rendered = snap.docs.map(docEntry => {
-      leaderboardRank += 1;
-      return builderRow(docEntry.data(), leaderboardRank, playerInfo && docEntry.id === playerInfo.id);
-    }).join("");
-
-    if (snap.docs.length === 0 && !ui.leaderboardBody.innerHTML) {
-      ui.leaderboardBody.innerHTML = '<tr><td colspan="4" class="empty-state">No scores yet. Be the first!</td></tr>';
-      ui.leaderboardStatus.textContent = "";
-      leaderboardDone = true;
-      return;
+    if (!leaderboardCursor) {
+      leaderboardCache = { docs: snap.docs, time: Date.now() };
     }
-    leaderboardCursor = snap.docs[snap.docs.length - 1];
-    if (rendered) ui.leaderboardBody.insertAdjacentHTML("beforeend", rendered);
 
-    leaderboardDone = !morePages;
-    ui.leaderboardEnd.hidden = false;
-    ui.leaderboardEnd.textContent = morePages ? "Scroll for more" : (ui.leaderboardBody.innerHTML ? "All caught up" : "");
-    ui.leaderboardStatus.textContent = "";
-    syncPlayerChip();
+    renderLeaderboardPage(snap.docs);
   } catch (e) {
     console.error("Leaderboard load failed", e);
     setLeaderboardError(e.message || String(e));
@@ -635,13 +626,36 @@ async function fetchLeaderboard(reset = false) {
   }
 }
 
+function renderLeaderboardPage(docs) {
+  let morePages = docs.length >= LEADERBOARD_PAGE_SIZE;
+  const rendered = docs.map(docEntry => {
+    leaderboardRank += 1;
+    return builderRow(docEntry.data(), leaderboardRank, playerInfo && docEntry.id === playerInfo.id);
+  }).join("");
+
+  if (docs.length === 0 && !ui.leaderboardBody.innerHTML) {
+    ui.leaderboardBody.innerHTML = '<tr><td colspan="4" class="empty-state">No scores yet. Be the first!</td></tr>';
+    ui.leaderboardStatus.textContent = "";
+    leaderboardDone = true;
+    return;
+  }
+  leaderboardCursor = docs[docs.length - 1];
+  if (rendered) ui.leaderboardBody.insertAdjacentHTML("beforeend", rendered);
+
+  leaderboardDone = !morePages;
+  ui.leaderboardEnd.hidden = false;
+  ui.leaderboardEnd.textContent = morePages ? "Scroll for more" : (ui.leaderboardBody.innerHTML ? "All caught up" : "");
+  ui.leaderboardStatus.textContent = "";
+  syncPlayerChip();
+}
+
 ui.leaderboardBody?.addEventListener("click", async (e) => {
   if (!e.target.closest("[data-ld-jump]")) return;
   const body = ui.leaderboardBody;
   const wrap = ui.leaderboardScroll;
   if (!wrap) return;
   let guard = 0;
-  while (!body.querySelector("tr.leaderboard-player-row") && !leaderboardDone && guard < 40) {
+  while (!body.querySelector("tr.leaderboard-player-row") && !leaderboardDone && guard < 10) {
     await fetchLeaderboard();
     guard++;
   }
@@ -652,12 +666,17 @@ ui.leaderboardBody?.addEventListener("click", async (e) => {
   }
 });
 
+let scrollTimer = null;
 ui.leaderboardScroll?.addEventListener("scroll", () => {
   syncPlayerChip();
-  const wrap = ui.leaderboardScroll;
-  if (wrap.scrollTop + wrap.clientHeight >= wrap.scrollHeight - 32) {
-    fetchLeaderboard();
-  }
+  if (scrollTimer) return;
+  scrollTimer = setTimeout(() => {
+    scrollTimer = null;
+    const wrap = ui.leaderboardScroll;
+    if (wrap.scrollTop + wrap.clientHeight >= wrap.scrollHeight - 32) {
+      fetchLeaderboard();
+    }
+  }, 300);
 });
 
 auth.onAuthStateChanged(user => {

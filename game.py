@@ -107,11 +107,11 @@ class WordSmashGame:
         for _ in range(MAX_OPENING_DEALS):
             self.hand = []
             self.deal_hand(STARTING_HAND_SIZE)
-            if self.has_valid_move():
+            if self.has_valid_two_move_path():
                 return
 
         self.game_over = True
-        self.game_over_message = f"Game over: no 4-letter word was possible after {MAX_OPENING_DEALS} deals. Deal a new board to try again."
+        self.game_over_message = f"Game over: no valid two-move path found after {MAX_OPENING_DEALS} deals. Deal a new board to try again."
 
     def empty_slots(self):
         return [index for index, letter in enumerate(self.board) if letter is None]
@@ -215,6 +215,34 @@ class WordSmashGame:
             and self.can_build_word(word)
             for word in self.words
         )
+
+    def has_valid_two_move_path(self):
+        board = [None] * STARTING_BOARD_SIZE
+        hand_counter = Counter(self.hand)
+        for word in self.words:
+            if len(word) != STARTING_BOARD_SIZE or word in self.history:
+                continue
+            needed = Counter()
+            possible = True
+            for index, board_letter in enumerate(board):
+                if board_letter is None:
+                    needed[word[index]] += 1
+                elif word[index] != board_letter:
+                    possible = False
+                    break
+            if not possible or (needed - hand_counter):
+                continue
+            remaining = self.hand[:]
+            for letter, count in needed.items():
+                for _ in range(count):
+                    remaining.remove(letter)
+            for i in range(STARTING_BOARD_SIZE):
+                for letter in remaining:
+                    if letter != word[i]:
+                        candidate = word[:i] + letter + word[i + 1:]
+                        if candidate in self.words and candidate != word:
+                            return True
+        return False
 
     def find_hint(self):
         if self.phase != "build":

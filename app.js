@@ -1,5 +1,25 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+import { getFirestore, collection, query, orderBy, limit, startAfter, getDocs, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+
 const themeStorageKey = "wordSmash.theme";
 const themeToggle = document.querySelector("#theme-toggle");
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCiuC9xyvBrP1scOnDQTlXBesceaeUWstU",
+  authDomain: "wordsmash-cda66.firebaseapp.com",
+  projectId: "wordsmash-cda66",
+  storageBucket: "wordsmash-cda66.firebasestorage.app",
+  messagingSenderId: "296751243456",
+  appId: "1:296751243456:web:b1ef91ac378fdb19518d25"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const auth = getAuth(firebaseApp);
+const db = getFirestore(firebaseApp);
+
+let currentUser = null;
+signInAnonymously(auth).catch(console.error);
 
 function applyTheme(theme) {
   const isDark = theme === "dark";
@@ -48,6 +68,17 @@ const ui = {
   moveRight: document.querySelector("#move-right"),
   moveReset: document.querySelector("#move-reset"),
   shopBuyButtons: [...document.querySelectorAll("[data-shop-item]")],
+  leaderboardBody: document.querySelector("#leaderboard-body"),
+  leaderboardStatus: document.querySelector("#leaderboard-status"),
+  leaderboardScroll: document.querySelector("#leaderboard-scroll"),
+  leaderboardEnd: document.querySelector("#leaderboard-end"),
+  gameOverModal: document.querySelector("#game-over-modal"),
+  modalScore: document.querySelector("#modal-score"),
+  modalWords: document.querySelector("#modal-words"),
+  playerNameInput: document.querySelector("#player-name"),
+  modalSkipBtn: document.querySelector("#modal-skip-btn"),
+  modalSubmitBtn: document.querySelector("#modal-submit-btn"),
+  modalError: document.querySelector("#modal-error"),
 };
 
 let selectedHand = new Set();
@@ -236,8 +267,11 @@ function render(stateText) {
     ui.score.addEventListener("animationend", () => ui.score.classList.remove("score-pulse"), { once: true });
   }
   if (boardWasSmashed) playAnimation(ui.board, "smash-impact");
-  if (state.game_over && !previousState?.game_over) playAnimation(ui.dealButton, "game-over-pulse");
-  if (state.game_over && !previousState?.game_over) playSound("game-over");
+  if (state.game_over && !previousState?.game_over) {
+    playAnimation(ui.dealButton, "game-over-pulse");
+    playSound("game-over");
+    showGameOverModal(state.score, state.history.length);
+  }
   if (state.kind === "success") playSound(previousState?.phase === "smash" ? "smash" : "success");
   if (state.kind === "error") playSound("error");
 }
@@ -354,4 +388,310 @@ ui.nextRoundButton.addEventListener("click", () => {
   window.pyNextRound();
 });
 
+const LEADERBOARD_PAGE_SIZE = 10;
+let pendingGameOverData = null;
+let leaderboardCursor = null;
+let leaderboardLoading = false;
+let leaderboardDone = false;
+let leaderboardRank = 0;
+let playerInfo = null;
+
+const NAME_COOKIE = "wordSmash.name";
+
+function getCookieValue(name) {
+  const raw = document.cookie;
+  const part = (raw || "").split("; ").find(item => item.startsWith(`${name}=`));
+  if (!part) return "";
+  try {
+    return decodeURIComponent(part.slice(name.length + 1));
+  } catch {
+    return part.slice(name.length + 1);
+  }
+}
+
+function setCookieValue(name, value) {
+  document.cookie = `${name}=${encodeURIComponent(value)};path=/;max-age=31536000;SameSite=Lax`;
+  try {
+    localStorage.setItem(name, value);
+  } catch {
+    return;
+  }
+}
+
+function getSavedName() {
+  return getCookieValue(NAME_COOKIE) || (typeof localStorage !== "undefined" && localStorage.getItem(NAME_COOKIE)) || "";
+}
+
+function setSavedName(value) {
+  setCookieValue(NAME_COOKIE, value);
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+}
+
+function nameKey(name) {
+  return encodeURIComponent(name.trim().toLowerCase());
+}
+
+function showGameOverModal(score, wordCount) {
+  pendingGameOverData = { score, wordCount };
+  ui.modalScore.textContent = score;
+  ui.modalWords.textContent = wordCount;
+  ui.playerNameInput.value = getSavedName();
+  ui.playerNameInput.focus();
+  ui.playerNameInput.select();
+  if (ui.modalError) ui.modalError.hidden = true;
+  if (typeof ui.gameOverModal?.showModal === "function") {
+    ui.gameOverModal.showModal();
+  } else {
+    ui.gameOverModal.setAttribute("open", "");
+  }
+}
+
+function closeGameOverModal() {
+  if (typeof ui.gameOverModal?.close === "function") {
+    ui.gameOverModal.close();
+  } else {
+    ui.gameOverModal.removeAttribute("open");
+  }
+  pendingGameOverData = null;
+}
+
+function builderRow(d, index, isPlayer = false) {
+  return `<tr${isPlayer ? ' class="leaderboard-player-row"' : ""}>
+    <td class="ld-rank">#${index}</td>
+    <td class="ld-name">${escapeHtml(d.name)}${isPlayer ? " (you)" : ""}</td>
+    <td class="ld-score">${Number(d.score).toLocaleString()}</td>
+    <td class="ld-words">${Number(d.word_count) || 0}</td>
+  </tr>`;
+}
+
+function setLeaderboardError(message) {
+  leaderboardDone = true;
+  if (message && !ui.leaderboardBody.innerHTML) {
+    ui.leaderboardBody.innerHTML = `<tr><td colspan="4" class="empty-state error">${escapeHtml(message)}</td></tr>`;
+  }
+  ui.leaderboardStatus.textContent = "Error";
+}
+
+async function countHigher(orderValue) {
+  const all = await getDocs(collection(db, "leaderboard"));
+  let above = 0;
+  all.docs.forEach(docEntry => {
+    if (Number(docEntry.data().order_value) > orderValue) above += 1;
+  });
+  return above;
+}
+
+function chipRowHtml(p) {
+  return `<tr class="leaderboard-chip-row" data-ld-jump="1" style="cursor:pointer">
+    <td class="ld-rank">#${p.rank}</td>
+    <td class="ld-name">${p.name} (you)</td>
+    <td class="ld-score">${p.score.toLocaleString()}</td>
+    <td class="ld-words">${p.wordCount}</td>
+  </tr>`;
+}
+
+function syncPlayerChip() {
+  if (!playerInfo) return;
+  ui.leaderboardBody.querySelectorAll("tr.leaderboard-chip-row").forEach(r => r.remove());
+  const playerRow = ui.leaderboardBody.querySelector("tr.leaderboard-player-row");
+  const wrap = ui.leaderboardScroll;
+  let playerVisible = false;
+  if (playerRow && wrap) {
+    const rowTop = playerRow.offsetTop - wrap.offsetTop;
+    playerVisible = rowTop >= wrap.scrollTop && rowTop < wrap.scrollTop + wrap.clientHeight - 40;
+  }
+  if (!playerVisible) {
+    ui.leaderboardBody.insertAdjacentHTML("beforeend", chipRowHtml(playerInfo));
+  }
+}
+
+async function submitScoreSafe(name, score, wordCount) {
+  if (!currentUser) {
+    try {
+      const cred = await signInAnonymously(auth);
+      currentUser = cred.user;
+    } catch (e) {
+      console.error("Anonymous auth failed", e);
+      return { ok: false, error: "Anonymous sign-in failed. Check that the Anonymous auth method is enabled and the API key is valid." };
+    }
+  }
+  const cleanName = name.slice(0, 20);
+  const orderValue = score * 1000000000 + (1000000000 - wordCount);
+  try {
+    const entryId = nameKey(name);
+    const existing = await getDoc(doc(db, "leaderboard", entryId));
+    if (existing.exists() && score <= Number(existing.data().score || -1)) {
+      return { ok: true, updated: false };
+    }
+    await setDoc(doc(db, "leaderboard", entryId), {
+      name: cleanName,
+      score,
+      word_count: wordCount,
+      order_value: orderValue,
+      timestamp: Date.now()
+    }, { merge: false });
+    return { ok: true, updated: true };
+  } catch (e) {
+    console.error("Firestore submit failed", e);
+    return { ok: false, error: "Score submit failed. Check Firestore rules allow authenticated writes and that the database exists: " + String(e.message || e) };
+  }
+}
+
+async function handleSubmit() {
+  const name = (ui.playerNameInput.value || "").trim() || "Anonymous";
+  if (ui.modalError) ui.modalError.hidden = true;
+  setSavedName(name);
+  const data = pendingGameOverData;
+  closeGameOverModal();
+  if (!data) return;
+  const result = await submitScoreSafe(name, data.score, data.wordCount);
+  if (result && !result.ok && ui.modalError) {
+    ui.modalError.textContent = result.error;
+    ui.modalError.hidden = false;
+    ui.gameOverModal.showModal();
+  } else {
+    await fetchLeaderboard(true);
+  }
+}
+
+ui.modalSubmitBtn?.addEventListener("click", handleSubmit);
+ui.modalSkipBtn?.addEventListener("click", closeGameOverModal);
+ui.playerNameInput?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    handleSubmit();
+  }
+});
+
+async function fetchLeaderboard(reset = false) {
+  if (leaderboardLoading || (!reset && leaderboardDone)) return;
+  leaderboardLoading = true;
+  try {
+    if (reset) {
+      leaderboardCursor = null;
+      leaderboardDone = false;
+      leaderboardRank = 0;
+      playerInfo = null;
+      ui.leaderboardBody.innerHTML = "";
+      ui.leaderboardEnd.hidden = true;
+      ui.leaderboardEnd.textContent = "";
+      const savedName = getSavedName();
+      if (savedName) {
+        const pinRef = doc(db, "leaderboard", nameKey(savedName));
+        const pinSnap = await getDoc(pinRef);
+        if (pinSnap.exists()) {
+          const d = pinSnap.data();
+          playerInfo = {
+            id: pinSnap.id,
+            name: String(d.name),
+            score: Number(d.score) || 0,
+            wordCount: Number(d.word_count) || 0,
+            rank: (await countHigher(Number(d.order_value) || 0)) + 1,
+          };
+        }
+      }
+    }
+    let q = query(collection(db, "leaderboard"), orderBy("order_value", "desc"), limit(LEADERBOARD_PAGE_SIZE));
+    if (leaderboardCursor) q = query(q, startAfter(leaderboardCursor));
+    const snap = await getDocs(q);
+
+    let morePages = snap.docs.length >= LEADERBOARD_PAGE_SIZE;
+    const rendered = snap.docs.map(docEntry => {
+      leaderboardRank += 1;
+      return builderRow(docEntry.data(), leaderboardRank, playerInfo && docEntry.id === playerInfo.id);
+    }).join("");
+
+    if (snap.docs.length === 0 && !ui.leaderboardBody.innerHTML) {
+      ui.leaderboardBody.innerHTML = '<tr><td colspan="4" class="empty-state">No scores yet. Be the first!</td></tr>';
+      ui.leaderboardStatus.textContent = "";
+      leaderboardDone = true;
+      return;
+    }
+    leaderboardCursor = snap.docs[snap.docs.length - 1];
+    if (rendered) ui.leaderboardBody.insertAdjacentHTML("beforeend", rendered);
+
+    leaderboardDone = !morePages;
+    ui.leaderboardEnd.hidden = false;
+    ui.leaderboardEnd.textContent = morePages ? "Scroll for more" : (ui.leaderboardBody.innerHTML ? "All caught up" : "");
+    ui.leaderboardStatus.textContent = "";
+    syncPlayerChip();
+  } catch (e) {
+    console.error("Leaderboard load failed", e);
+    setLeaderboardError(e.message || String(e));
+  } finally {
+    leaderboardLoading = false;
+    const wrap = ui.leaderboardScroll;
+    if (!leaderboardDone && wrap && wrap.scrollHeight <= wrap.clientHeight + 2) {
+      fetchLeaderboard();
+    }
+  }
+}
+
+ui.leaderboardBody?.addEventListener("click", async (e) => {
+  if (!e.target.closest("[data-ld-jump]")) return;
+  const body = ui.leaderboardBody;
+  const wrap = ui.leaderboardScroll;
+  if (!wrap) return;
+  let guard = 0;
+  while (!body.querySelector("tr.leaderboard-player-row") && !leaderboardDone && guard < 40) {
+    await fetchLeaderboard();
+    guard++;
+  }
+  const row = body.querySelector("tr.leaderboard-player-row");
+  if (row && wrap) {
+    const target = row.getBoundingClientRect().top - wrap.getBoundingClientRect().top + wrap.scrollTop;
+    wrap.scrollTo({ top: Math.max(0, target - 20), behavior: "smooth" });
+  }
+});
+
+ui.leaderboardScroll?.addEventListener("scroll", () => {
+  syncPlayerChip();
+  const wrap = ui.leaderboardScroll;
+  if (wrap.scrollTop + wrap.clientHeight >= wrap.scrollHeight - 32) {
+    fetchLeaderboard();
+  }
+});
+
+auth.onAuthStateChanged(user => {
+  currentUser = user;
+});
+
+fetchLeaderboard(true);
+
 window.wordSmashUI = { render, setLoading, setReady, setError };
+
+document.querySelectorAll("details.how-to-play").forEach(details => {
+  const summary = details.querySelector("summary");
+  const content = details.querySelector(":not(summary)");
+  if (!summary || !content) return;
+  content.style.overflow = "hidden";
+  summary.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (details.open) {
+      content.style.maxHeight = content.scrollHeight + "px";
+      content.offsetHeight;
+      content.style.transition = "max-height 0.3s ease";
+      content.style.maxHeight = "0px";
+      content.addEventListener("transitionend", function h() {
+        details.open = false;
+        content.style.transition = "";
+        content.style.maxHeight = "";
+        content.removeEventListener("transitionend", h);
+      });
+    } else {
+      details.open = true;
+      content.style.maxHeight = "0px";
+      content.offsetHeight;
+      content.style.transition = "max-height 0.3s ease";
+      content.style.maxHeight = content.scrollHeight + "px";
+      content.addEventListener("transitionend", function h() {
+        content.style.transition = "";
+        content.style.maxHeight = "";
+        content.removeEventListener("transitionend", h);
+      });
+    }
+  });
+});
